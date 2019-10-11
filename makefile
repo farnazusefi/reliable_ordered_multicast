@@ -3,7 +3,7 @@ CC=gcc
 CFLAGS = -g -c -Wall -pedantic -D_GNU_SOURCE
 #CFLAGS = -ansi -c -Wall -pedantic -D_GNU_SOURCE
 
-all: bcast mcast
+all:  mcast
 
 
 bcast: bcast.o

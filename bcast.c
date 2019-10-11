@@ -25,10 +25,9 @@ int main()
     }
 
     name.sin_family = AF_INET;
-    bindkkdfja; 
     name.sin_addr.s_addr = INADDR_ANY;
     name.sin_port = htons(PORT);
-dfjal
+
 if {
 	
 }
