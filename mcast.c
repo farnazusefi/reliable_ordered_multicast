@@ -71,7 +71,6 @@ typedef struct sessionT
     int receivingSocket;
 
     FILE *f;
-
     struct sockaddr_in sendAddr;
 
 } session;
@@ -223,11 +222,11 @@ void initializeBuffers()
     u_int32_t i;
     for (i = 0; i < currentSession.numberOfMachines; i++)
     {
-        currentSession.lastDeliveredCounters[i] = *(u_int32_t*)calloc(sizeof(u_int32_t), 0);
-        currentSession.lastInOrderReceivedIndexes[i] = *(u_int32_t*)calloc(sizeof(u_int32_t), 0);
-        currentSession.windowStartPointers[i] = *(u_int32_t*)calloc(sizeof(u_int32_t), 0);
-        currentSession.readyForDelivery[i] = *(u_int32_t*)calloc(sizeof(u_int32_t), 0);
-        currentSession.highestReceivedIndexes[i] = *(u_int32_t*)calloc(sizeof(u_int32_t), 0);
+        currentSession.lastDeliveredCounters[i] = *(u_int32_t *)calloc(sizeof(u_int32_t), 0);
+        currentSession.lastInOrderReceivedIndexes[i] = *(u_int32_t *)calloc(sizeof(u_int32_t), 0);
+        currentSession.windowStartPointers[i] = *(u_int32_t *)calloc(sizeof(u_int32_t), 0);
+        currentSession.readyForDelivery[i] = *(u_int32_t *)calloc(sizeof(u_int32_t), 0);
+        currentSession.highestReceivedIndexes[i] = *(u_int32_t *)calloc(sizeof(u_int32_t), 0);
         currentSession.dataMatrix = (windowSlot **)malloc(currentSession.numberOfMachines * sizeof(windowSlot *));
         u_int32_t j;
         for (j = 0; j < currentSession.windowSize; j++)
@@ -328,7 +327,6 @@ void handleDataMessage(message *m, int bytes)
 
 void synchronizeWindow()
 {
-    
 }
 
 void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length)

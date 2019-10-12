@@ -55,3 +55,7 @@ cmake-build-debug
 
 .vscode
 mcast
+.cproject
+.project
+.settings
+start_mcast
