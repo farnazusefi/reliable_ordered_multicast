@@ -249,30 +249,29 @@ void initializeBuffers() {
 
 	u_int32_t i;
 	log_info("initializing buffers");
+	currentSession.lastDeliveredCounters = (u_int32_t*) calloc(
+			currentSession.numberOfMachines * sizeof(u_int32_t), 0);
+	currentSession.lastInOrderReceivedIndexes = (u_int32_t*) calloc(
+			currentSession.numberOfMachines * sizeof(u_int32_t), 0);
+	currentSession.windowStartPointers = (u_int32_t*) calloc(
+			currentSession.numberOfMachines * sizeof(u_int32_t), 0);
+	currentSession.readyForDelivery = (u_int32_t*) calloc(
+			currentSession.numberOfMachines * sizeof(u_int32_t), 0);
+	currentSession.highestReceivedIndexes = (u_int32_t*) calloc(
+			currentSession.numberOfMachines * sizeof(u_int32_t), 0);
+	currentSession.finalizedProcessesLastIndices = (u_int32_t*) calloc(
+			currentSession.numberOfMachines * sizeof(u_int32_t), 0);
+	currentSession.lastDeliveredIndexes = (u_int32_t*) calloc(
+			currentSession.numberOfMachines * sizeof(u_int32_t), 0);
+	currentSession.timoutTimestamps = (struct timeval*) malloc(
+			currentSession.numberOfMachines * sizeof(struct timeval));
+
+	currentSession.dataMatrix = (windowSlot**) malloc(
+					currentSession.numberOfMachines * sizeof(windowSlot*));
+
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		currentSession.lastDeliveredCounters[i] = *(u_int32_t*) calloc(
-				sizeof(u_int32_t), 0);
-		currentSession.lastInOrderReceivedIndexes[i] = *(u_int32_t*) calloc(
-				sizeof(u_int32_t), 0);
-		currentSession.windowStartPointers[i] = *(u_int32_t*) calloc(
-				sizeof(u_int32_t), 0);
-		currentSession.readyForDelivery[i] = *(u_int32_t*) calloc(
-				sizeof(u_int32_t), 0);
-		currentSession.highestReceivedIndexes[i] = *(u_int32_t*) calloc(
-				sizeof(u_int32_t), 0);
-		currentSession.finalizedProcessesLastIndices[i] = *(u_int32_t*) calloc(
-				sizeof(u_int32_t), 0);
-		currentSession.lastDeliveredIndexes[i] = *(u_int32_t*) calloc(
-				sizeof(u_int32_t), 0);
-		currentSession.timoutTimestamps[i] = *(struct timeval*) malloc(
-				sizeof(struct timeval));
-		currentSession.dataMatrix = (windowSlot**) malloc(
-				currentSession.numberOfMachines * sizeof(windowSlot*));
-		u_int32_t j;
-		for (j = 0; j < currentSession.windowSize; j++) {
-			currentSession.dataMatrix[i] = (windowSlot*) malloc(
-					currentSession.windowSize * sizeof(windowSlot));
-		}
+		currentSession.dataMatrix[i] = (windowSlot*) malloc(
+				currentSession.windowSize * sizeof(windowSlot));
 	}
 	currentSession.localClock = 0;
 	currentSession.windowStartIndex = 0;
