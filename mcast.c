@@ -2,7 +2,7 @@
 #include "net_include.h"
 #include "log.h"
 
-#define TIMEOUT 2000
+#define TIMEOUT 2000000
 
 typedef struct messageT {
 	u_int32_t type;

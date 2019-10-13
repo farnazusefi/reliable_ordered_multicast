@@ -44,6 +44,8 @@ int main()
     sendAddr.sin_port = htons(PORT);
 
     send_buf[0] = TYPE_START;
+    send_buf[4] = 0;
+    send_buf[8] = 0;
     printf("sending START to all...\n");
     sendto( sendingSocket, send_buf, 80, 0,
         (struct sockaddr *)&sendAddr, sizeof(sendAddr) );
