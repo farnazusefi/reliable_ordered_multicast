@@ -737,9 +737,9 @@ void initializeAndSendRandomNumber(int moveStartpointer) {
 
 void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 	char message[payloadSize+12];
-	message[0] = type;
-	message[4] = currentSession.machineIndex;
-	message[8] = currentSession.lastDeliveredCounters[currentSession.machineIndex-1];
+	memcpy(message, &type, 4);
+	memcpy(message + 4, &currentSession.machineIndex, 4);
+	memcpy(message + 8, &currentSession.lastDeliveredCounters[currentSession.machineIndex-1], 4);
 	memcpy(message + 12, dp, payloadSize);
 	log_trace("sending:");
 	int j;
