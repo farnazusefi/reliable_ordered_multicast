@@ -316,7 +316,7 @@ void initializeBuffers() {
 void handleTimeOut(u_int32_t pid) {
 	char pollMsg[4];
 	log_debug("Sending POLL for pid=%d", pid);
-	pollMsg[0] = pid;
+	memcpy(pollMsg, &pid, 4);
 	sendMessage(TYPE_POLL, pollMsg, 4);
 }
 
@@ -375,7 +375,8 @@ void handlePollMessage(void *m, int bytes) {
 		resendMessage(currentSession.lastSentIndex);
 	else if (currentSession.state == STATE_RECEIVING) {
 		char data[1412];
-		data[0] = 0;
+		u_int32_t zero = 0;
+		memcpy(data, &zero, 4);
 		sendMessage(STATE_FINALIZING, data, 1412);
 	}
 }
@@ -403,9 +404,9 @@ void resendMessage(u_int32_t index) {
 	char data[1412];
 	log_debug("re-sending data index %d", index);
 
-	data[0] = ws.index;
-	data[4] = ws.lamportCounter;
-	data[8] = ws.randomNumber;
+	memcpy(data, &ws.index, 4);
+	memcpy(data + 4, &ws.lamportCounter, 4);
+	memcpy(data + 8, &ws.randomNumber, 4);
 
 	memcpy(data + 12, garbage_data, 1400);
 
@@ -517,9 +518,10 @@ void synchronizeWindow() {
 
 void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 	char data[4 + sizeof(u_int32_t) * length];
-	data[0] = FEEDBACK_NACK;
-	data[4] = pid;
-	data[8] = length;
+	u_int32_t feedbackType = FEEDBACK_NACK;
+	memcpy(data, &feedbackType, 4);
+	memcpy(data + 4, &pid, 4);
+	memcpy(data + 8, &length, 4);
 	int i;
 	for (i = 1; i <= length; i++) {
 		data[(4 * i) + 8] = indexes[i - 1];
@@ -647,8 +649,9 @@ void checkForDeliveryConditions(u_int32_t receivedCounter) {
 	}
 	if (currentSession.numberOfPackets == 0) {
 		char data[8];
-		data[0] = FEEDBACK_ACK;
-		data[4] = currentSession.lastDeliveredCounter;
+		u_int32_t feedbackType = FEEDBACK_ACK;
+		memcpy(data, &feedbackType, 4);
+		memcpy(data + 4, &currentSession.lastDeliveredCounter, 4);
 		log_debug("Acknowledging data for clock %d",
 				currentSession.lastDeliveredCounter);
 		sendMessage(TYPE_FEEDBACK, data, 8);
@@ -715,9 +718,11 @@ void initializeAndSendRandomNumber(int moveStartpointer) {
 	u_int32_t type = TYPE_DATA;
 	u_int32_t randomNumber = rand();
 	char data[1412];
-	data[0] = ++currentSession.lastSentIndex;
-	data[4] = ++currentSession.localClock;
-	data[8] = randomNumber;
+	++currentSession.lastSentIndex;
+	++currentSession.localClock;
+	memcpy(data, &currentSession.lastSentIndex, 4);
+	memcpy(data + 4, &currentSession.localClock, 4);
+	memcpy(data + 8, &randomNumber, 4);
 	ws.index = currentSession.lastSentIndex;
 	ws.lamportCounter = currentSession.localClock;
 	ws.randomNumber = randomNumber;
