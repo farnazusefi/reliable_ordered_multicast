@@ -121,7 +121,7 @@ void resendMessage(u_int32_t index);
 
 session currentSession;
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 	struct sockaddr_in name;
 
 	int mcast_addr;
@@ -137,29 +137,29 @@ int main(int argc, char** argv) {
 	int debug_mode = 3;
 	mcast_addr = 225 << 24 | 1 << 16 | 3 << 8 | 50; /* (225.1.3.50) */
 
+	if (argc != 5 && argc != 7) {
+		printf(
+				"Usage: ./mcast <num of packets> <machine index> <num of machines> <loss rate> [delay] [debug mode(1-5)]  \n");
+		exit(1);
+	}
 
+	// optional args
+	if (argc == 7) {
+		debug_mode = atoi(argv[6]);
+		currentSession.delay = atoi(argv[5]);
 
-    if(argc != 5 && argc != 7)
-    {
-        printf("Usage: ./mcast <num of packets> <machine index> <num of machines> <loss rate> [delay] [debug mode(1-5)]  \n");
-        exit(1);
-    }
-
-    // optional args
-    if(argc == 7)
-    {
-        debug_mode = atoi(argv[6]);
-        currentSession.delay = atoi(argv[5]);
-
-        log_info("debug mode = %d, delay = %d \n", debug_mode, currentSession.delay);
-    }
-    log_set_level(debug_mode);
-    currentSession.numberOfPackets = atoi(argv[1]);
-    currentSession.machineIndex = atoi(argv[2]);
-    currentSession.numberOfMachines = atoi(argv[3]);
-    currentSession.lossRate = atoi(argv[4]);
-    log_info("number of packets = %d, machine index = %d number of machines = %d  loss rate = %d \n", currentSession.numberOfPackets, currentSession.machineIndex, currentSession.numberOfMachines, currentSession.lossRate);
-
+		log_info("debug mode = %d, delay = %d \n", debug_mode,
+				currentSession.delay);
+	}
+	log_set_level(debug_mode);
+	currentSession.numberOfPackets = atoi(argv[1]);
+	currentSession.machineIndex = atoi(argv[2]);
+	currentSession.numberOfMachines = atoi(argv[3]);
+	currentSession.lossRate = atoi(argv[4]);
+	log_info(
+			"number of packets = %d, machine index = %d number of machines = %d  loss rate = %d \n",
+			currentSession.numberOfPackets, currentSession.machineIndex,
+			currentSession.numberOfMachines, currentSession.lossRate);
 
 	currentSession.receivingSocket = socket(AF_INET, SOCK_DGRAM, 0); /* socket for receiving */
 	if (currentSession.receivingSocket < 0) {
@@ -218,6 +218,13 @@ int main(int argc, char** argv) {
 	log_error("test");
 	log_fatal("test");
 
+	log_info("Waiting for start message");
+	bytes = recv(currentSession.receivingSocket, mess_buf,
+			sizeof(mess_buf), 0);
+	mess_buf[bytes] = 0;
+	log_debug("received : %s\n", mess_buf);
+	parse((void*) mess_buf, bytes);
+
 	FD_ZERO(&mask);
 	FD_ZERO(&dummy_mask);
 	FD_SET(currentSession.receivingSocket, &mask);
@@ -238,8 +245,13 @@ int main(int argc, char** argv) {
 		{
 			int i;
 			log_info("timeout in select. Polling all processes");
-			for (i = 1; i <= currentSession.numberOfMachines; i++)
-				handleTimeOut(i);
+			if (currentSession.state == STATE_WAITING)
+				continue;
+			for (i = 1; i <= currentSession.numberOfMachines; i++) {
+				if (i != currentSession.machineIndex - 1)
+					handleTimeOut(i);
+
+			}
 		}
 	}
 	return 0;
@@ -267,7 +279,7 @@ void initializeBuffers() {
 			currentSession.numberOfMachines * sizeof(struct timeval));
 
 	currentSession.dataMatrix = (windowSlot**) malloc(
-					currentSession.numberOfMachines * sizeof(windowSlot*));
+			currentSession.numberOfMachines * sizeof(windowSlot*));
 
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		currentSession.dataMatrix[i] = (windowSlot*) malloc(
@@ -294,7 +306,8 @@ void checkTimeoutForOthers() {
 	gettimeofday(&t, NULL);
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		if ((t.tv_sec - currentSession.timoutTimestamps[i].tv_sec) * 1000000
-				+ (t.tv_usec - currentSession.timoutTimestamps[i].tv_usec)> TIMEOUT) {
+				+ (t.tv_usec - currentSession.timoutTimestamps[i].tv_usec)
+				> TIMEOUT && i != currentSession.machineIndex - 1) {
 			handleTimeOut(i + 1);
 		}
 	}
@@ -302,7 +315,7 @@ void checkTimeoutForOthers() {
 
 void parse(void *buf, int bytes) {
 	message *m = (message*) buf;
-	if(m->pid == currentSession.machineIndex)
+	if (m->pid == currentSession.machineIndex)
 		return;
 	log_debug("parsing ...");
 	switch (m->type) {
@@ -349,7 +362,8 @@ void handleFinalizeMessage(message *m, int bytes) {
 
 	dataPayload *dp = (dataPayload*) m->data;
 	windowSlot ws = dp->ws;
-	log_debug("received finalize message from %d, with index %d", m->pid, ws.index);
+	log_debug("received finalize message from %d, with index %d", m->pid,
+			ws.index);
 	if (ws.index == 0) {
 		currentSession.finalizedProcessesLastIndices[m->pid - 1] = 1;
 		currentSession.lastDeliveredCounters[m->pid - 1] = 1;
@@ -387,13 +401,15 @@ void handleFeedbackMessage(message *m, int bytes) {
 	switch (feedBackType) {
 	case FEEDBACK_ACK:
 		lastDeliveredCounter = m->data[4];
-		log_debug("handling Ack for counter %d from process %d", lastDeliveredCounter, m->pid);
+		log_debug("handling Ack for counter %d from process %d",
+				lastDeliveredCounter, m->pid);
 		updateLastDeliveredCounter(m->pid, lastDeliveredCounter);
 		break;
 	case FEEDBACK_NACK:
 		if (m->data[4] == currentSession.machineIndex) {
 			numOfNacks = m->data[8];
-			log_debug("handling Nack for of length %d from process %d", numOfNacks, m->pid);
+			log_debug("handling Nack for of length %d from process %d",
+					numOfNacks, m->pid);
 			for (i = 0; i < numOfNacks; i++) {
 				u_int32_t index = m->data[4 * (i + 3)];
 				resendMessage(index);
@@ -415,7 +431,8 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 void handleDataMessage(message *m, int bytes) {
 	dataPayload *dp = (dataPayload*) m->data;
 	windowSlot ws = dp->ws;
-	log_debug("handling data with counter= %d, index = %d from process %d", ws.lamportCounter, ws.index, m->pid);
+	log_debug("handling data with counter= %d, index = %d from process %d",
+			ws.lamportCounter, ws.index, m->pid);
 	switch (currentSession.state) {
 	case STATE_RECEIVING:
 	case STATE_SENDING:
@@ -512,13 +529,16 @@ int putInBuffer(message *m) {
 	// Check if the received packet's index is in the valid range for me to store
 	if (ws.index > currentSession.lastInOrderReceivedIndexes[m->pid - 1]
 			&& ws.index < (startIndex + currentSession.windowSize)) {
-		log_debug("putting in buffer, counter %d, index %d from process %d", ws.lamportCounter, ws.index, m->pid);
+		log_debug("putting in buffer, counter %d, index %d from process %d",
+				ws.lamportCounter, ws.index, m->pid);
 		currentWindowSlot[getPointerOfIndex(m->pid, ws.index)] = ws;
 		updateLastReceivedIndex(m->pid);
 		checkForDeliveryConditions(ws.lamportCounter);
 		return 1;
 	}
-	log_debug("not putting in buffer (retransmitted data), counter %d, index %d from process %d", ws.lamportCounter, ws.index, m->pid);
+	log_debug(
+			"not putting in buffer (retransmitted data), counter %d, index %d from process %d",
+			ws.lamportCounter, ws.index, m->pid);
 	return 0;
 }
 
@@ -548,7 +568,9 @@ void deliverLowestData() {
 					currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].randomNumber;
 		}
 	}
-	log_debug("delivering to file, counter %d, index %d from process %d, data: %d", minimumClock, minimumIndex, minimumPID, randomData);
+	log_debug(
+			"delivering to file, counter %d, index %d from process %d, data: %d",
+			minimumClock, minimumIndex, minimumPID, randomData);
 
 	deliverToFile(minimumPID, minimumIndex, randomData, minimumClock);
 }
@@ -604,7 +626,8 @@ void checkForDeliveryConditions(u_int32_t receivedCounter) {
 		char data[8];
 		data[0] = FEEDBACK_ACK;
 		data[4] = currentSession.lastDeliveredCounter;
-		log_debug("Acknowledging data for clock %d", currentSession.lastDeliveredCounter);
+		log_debug("Acknowledging data for clock %d",
+				currentSession.lastDeliveredCounter);
 		sendMessage(TYPE_FEEDBACK, data);
 	}
 	checkTermination();
@@ -682,7 +705,9 @@ void initializeAndSendRandomNumber(int moveStartpointer) {
 	memcpy(data + 12, garbage_data, 1400);
 	if (ws.index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
-	log_debug("sending data message with number %d, clock %d, index %d", randomNumber, currentSession.localClock, currentSession.lastSentIndex);
+	log_debug("sending data message with number %d, clock %d, index %d",
+			randomNumber, currentSession.localClock,
+			currentSession.lastSentIndex);
 	sendMessage(type, data);
 
 }
