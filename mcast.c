@@ -743,7 +743,7 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 	log_trace("sending:");
 	int j;
 	for(j = 0; j < 12; j++)
-		printf("%02X", message[j]);
+		printf("oo%02X", message[j]);
 	log_trace("\n");
 	sendto(currentSession.sendingSocket, &message, payloadSize+12, 0,
 			(struct sockaddr*) &currentSession.sendAddr,
