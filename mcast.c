@@ -47,7 +47,11 @@ enum FEEDBACK {
 };
 
 enum TYPE {
-	TYPE_START, TYPE_DATA, TYPE_FEEDBACK, TYPE_POLL, TYPE_FINALIZE
+	TYPE_START = 0x00000000,
+	TYPE_DATA = 0x00000001,
+	TYPE_FEEDBACK = 0x00000002,
+	TYPE_POLL = 0x00000003,
+	TYPE_FINALIZE = 0x00000004
 };
 
 typedef struct sessionT {
@@ -732,7 +736,7 @@ void initializeAndSendRandomNumber(int moveStartpointer) {
 
 void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 	char message[payloadSize+12];
-	message[0] = (u_int32_t)type;
+	message[0] = type;
 	message[4] = currentSession.machineIndex;
 	message[8] = currentSession.lastDeliveredCounter;
 	memcpy(message + 12, dp, payloadSize);
