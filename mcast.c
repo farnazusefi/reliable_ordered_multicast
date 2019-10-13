@@ -151,13 +151,15 @@ int main(int argc, char** argv) {
         debug_mode = atoi(argv[6]);
         currentSession.delay = atoi(argv[5]);
 
-        printf("debug mode = %d, delay = %d \n", debug_mode, currentSession.delay);
+        log_info("debug mode = %d, delay = %d \n", debug_mode, currentSession.delay);
     }
     log_set_level(debug_mode);
     currentSession.numberOfPackets = atoi(argv[1]);
     currentSession.machineIndex = atoi(argv[2]);
     currentSession.numberOfMachines = atoi(argv[3]);
     currentSession.lossRate = atoi(argv[4]);
+    log_info("number of packets = %d, machine index = %d number of machines = %d  loss rate = %d \n", currentSession.numberOfPackets, currentSession.machineIndex, currentSession.numberOfMachines, currentSession.lossRate);
+
 
 	currentSession.receivingSocket = socket(AF_INET, SOCK_DGRAM, 0); /* socket for receiving */
 	if (currentSession.receivingSocket < 0) {
