@@ -207,8 +207,8 @@ int main(int argc, char** argv) {
 	currentSession.sendAddr.sin_port = htons(PORT);
 
 	currentSession.state = STATE_WAITING;
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 800;
+	timeout.tv_sec = 1;
+	timeout.tv_usec = 0;
 	initializeBuffers();
 
 	log_trace("test");
@@ -302,8 +302,9 @@ void checkTimeoutForOthers() {
 
 void parse(void *buf, int bytes) {
 	message *m = (message*) buf;
+	if(m->pid == currentSession.machineIndex)
+		return;
 	log_debug("parsing ...");
-
 	switch (m->type) {
 	case TYPE_START:
 		handleStartMessage(m, bytes);
