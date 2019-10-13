@@ -3,6 +3,7 @@
 #include "log.h"
 
 #define TIMEOUT 2000000
+#define WINDOW_SIZE 100
 
 typedef struct messageT {
 	u_int32_t type;
@@ -300,6 +301,7 @@ void initializeBuffers() {
 	currentSession.localClock = 0;
 	currentSession.windowStartIndex = 0;
 	currentSession.isFinalDelivery = 0;
+	currentSession.windowSize = WINDOW_SIZE;
 	srand(time(0));
 	prepareFile();
 }
