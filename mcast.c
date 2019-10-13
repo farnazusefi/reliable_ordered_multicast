@@ -219,8 +219,8 @@ int main(int argc, char **argv) {
 	currentSession.sendAddr.sin_port = htons(PORT);
 
 	currentSession.state = STATE_WAITING;
-	timeout.tv_sec = 1;
-	timeout.tv_usec = 0;
+	timeout.tv_sec = 0;
+	timeout.tv_usec = 900000;
 	initializeBuffers();
 
 	log_trace("test");
