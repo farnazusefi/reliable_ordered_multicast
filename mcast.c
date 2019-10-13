@@ -27,6 +27,13 @@ typedef struct dataMessageT {
 	char *garbage;
 } dataMessage;
 
+typedef struct pollMessageT {
+	u_int32_t type;
+	u_int32_t pid;
+	u_int32_t lastDeliveredCounter;
+	u_int32_t pollPID;
+} pollMessage;
+
 enum STATE {
 	STATE_WAITING, STATE_SENDING, // sending and receiving
 	STATE_RECEIVING,
@@ -93,7 +100,7 @@ void handleFeedbackMessage(message *m, int bytes);
 
 void handleFinalizeMessage(void *m, int bytes);
 
-void handlePollMessage(message *m, int bytes);
+void handlePollMessage(void *m, int bytes);
 
 void handleTimeOut(u_int32_t pid);
 
@@ -334,10 +341,10 @@ void parse(void *buf, int bytes) {
 		handleFeedbackMessage(m, bytes);
 		break;
 	case TYPE_FINALIZE:
-		handleFinalizeMessage(m, bytes);
+		handleFinalizeMessage(buf, bytes);
 		break;
 	case TYPE_POLL:
-		handlePollMessage(m, bytes);
+		handlePollMessage(buf, bytes);
 		break;
 	default:
 		log_warn("invalid type %d\n", m->type);
@@ -349,9 +356,10 @@ void parse(void *buf, int bytes) {
 	}
 }
 
-void handlePollMessage(message *m, int bytes) {
-	u_int32_t polledPid = m->data[0];
-	log_debug("handling poll message from %d for %d", m->pid, polledPid);
+void handlePollMessage(void *m, int bytes) {
+	pollMessage * message = (pollMessage *) m;
+	u_int32_t polledPid = message->pollPID;
+	log_debug("handling poll message from %d for %d", message->pid, polledPid);
 	if (polledPid != currentSession.machineIndex)
 		return;
 	if (currentSession.state == STATE_SENDING)
