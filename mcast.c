@@ -248,7 +248,7 @@ int main(int argc, char **argv) {
 			if (currentSession.state == STATE_WAITING)
 				continue;
 			for (i = 1; i <= currentSession.numberOfMachines; i++) {
-				if (i != currentSession.machineIndex - 1)
+				if (i != currentSession.machineIndex)
 					handleTimeOut(i);
 
 			}
