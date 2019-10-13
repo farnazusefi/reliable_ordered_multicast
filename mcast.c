@@ -3,7 +3,7 @@
 #include "log.h"
 
 #define TIMEOUT 2000000
-#define WINDOW_SIZE 100
+#define WINDOW_SIZE 5
 
 typedef struct messageT {
 	u_int32_t type;
@@ -391,7 +391,7 @@ void handleFinalizeMessage(void *m, int bytes) {
 void resendMessage(u_int32_t index) {
 	u_int32_t type = TYPE_DATA;
 	windowSlot *myDataArray =
-			currentSession.dataMatrix[currentSession.machineIndex];
+			currentSession.dataMatrix[currentSession.machineIndex-1];
 	windowSlot ws = myDataArray[getPointerOfIndex(currentSession.machineIndex,
 			index)];
 	char data[1412];
@@ -499,8 +499,8 @@ void synchronizeWindow() {
 
 	while (1) {
 		u_int32_t windowStartPointer =
-				currentSession.windowStartPointers[currentSession.machineIndex];
-		if (currentSession.dataMatrix[currentSession.machineIndex][windowStartPointer].lamportCounter
+				currentSession.windowStartPointers[currentSession.machineIndex-1];
+		if (currentSession.dataMatrix[currentSession.machineIndex-1][windowStartPointer].lamportCounter
 				<= minimumOfWindow && currentSession.state == STATE_SENDING) {
 			initializeAndSendRandomNumber(1);
 		} else
@@ -710,15 +710,15 @@ void initializeAndSendRandomNumber(int moveStartpointer) {
 	u_int32_t randomNumber = rand();
 	char data[1412];
 	data[0] = ++currentSession.lastSentIndex;
-	data[4] = currentSession.localClock;
+	data[4] = ++currentSession.localClock;
 	data[8] = randomNumber;
 	ws.index = currentSession.lastSentIndex;
 	ws.lamportCounter = currentSession.localClock;
 	ws.randomNumber = randomNumber;
-	currentSession.dataMatrix[currentSession.machineIndex][currentSession.windowStartPointers[currentSession.machineIndex]] =
+	currentSession.dataMatrix[currentSession.machineIndex-1][currentSession.windowStartPointers[currentSession.machineIndex-1]] =
 			ws;
 	if (moveStartpointer)
-		currentSession.windowStartPointers[currentSession.machineIndex]++;
+		currentSession.windowStartPointers[currentSession.machineIndex-1]++;
 	memcpy(data + 12, garbage_data, 1400);
 	if (ws.index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
@@ -755,7 +755,7 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData,
 		u_int32_t lts) {
 	fprintf(currentSession.f, "%2d, %8d, %8d\n", pid, index, randomData);
 	currentSession.lastDeliveredCounter = lts;
-	currentSession.lastDeliveredCounters[currentSession.machineIndex] = lts;
+	currentSession.lastDeliveredCounters[currentSession.machineIndex-1] = lts;
 	currentSession.lastDeliveredIndexes[pid - 1] = index;
 	if (pid != currentSession.machineIndex) {
 		currentSession.windowStartPointers[pid - 1] =
