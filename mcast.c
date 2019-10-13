@@ -17,10 +17,15 @@ typedef struct windowSlotT {
 	u_int32_t lamportCounter;
 } windowSlot;
 
-typedef struct dataPayloadT {
-	windowSlot ws;
+typedef struct dataMessageT {
+	u_int32_t type;
+	u_int32_t pid;
+	u_int32_t lastDeliveredCounter;
+	u_int32_t index;
+	u_int32_t randomNumber;
+	u_int32_t lamportCounter;
 	char *garbage;
-} dataPayload;
+} dataMessage;
 
 enum STATE {
 	STATE_WAITING, STATE_SENDING, // sending and receiving
@@ -82,11 +87,11 @@ void parse(void *buf, int bytes);
 
 void handleStartMessage(message *m, int bytes);
 
-void handleDataMessage(message *m, int bytes);
+void handleDataMessage(void *m, int bytes);
 
 void handleFeedbackMessage(message *m, int bytes);
 
-void handleFinalizeMessage(message *m, int bytes);
+void handleFinalizeMessage(void *m, int bytes);
 
 void handlePollMessage(message *m, int bytes);
 
@@ -102,7 +107,7 @@ void initializeAndSendRandomNumber(int moveStartPointer);
 
 void sendMessage(enum TYPE type, char *dp);
 
-int putInBuffer(message *m);
+int putInBuffer(dataMessage *m);
 
 void updateLastReceivedIndex(u_int32_t pid);
 
@@ -323,7 +328,7 @@ void parse(void *buf, int bytes) {
 		handleStartMessage(m, bytes);
 		break;
 	case TYPE_DATA:
-		handleDataMessage(m, bytes);
+		handleDataMessage(buf, bytes);
 		break;
 	case TYPE_FEEDBACK:
 		handleFeedbackMessage(m, bytes);
@@ -358,18 +363,17 @@ void handlePollMessage(message *m, int bytes) {
 	}
 }
 
-void handleFinalizeMessage(message *m, int bytes) {
+void handleFinalizeMessage(void *m, int bytes) {
 
-	dataPayload *dp = (dataPayload*) m->data;
-	windowSlot ws = dp->ws;
-	log_debug("received finalize message from %d, with index %d", m->pid,
-			ws.index);
-	if (ws.index == 0) {
-		currentSession.finalizedProcessesLastIndices[m->pid - 1] = 1;
-		currentSession.lastDeliveredCounters[m->pid - 1] = 1;
+	dataMessage *dm = (dataMessage*) m;
+	log_debug("received finalize message from %d, with index %d", dm->pid,
+			dm->index);
+	if (dm->index == 0) {
+		currentSession.finalizedProcessesLastIndices[dm->pid - 1] = 1;
+		currentSession.lastDeliveredCounters[dm->pid - 1] = 1;
 		return;
 	}
-	currentSession.finalizedProcessesLastIndices[m->pid - 1] = ws.index;
+	currentSession.finalizedProcessesLastIndices[dm->pid - 1] = dm->index;
 	handleDataMessage(m, bytes);
 }
 
@@ -428,39 +432,38 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 	}
 }
 
-void handleDataMessage(message *m, int bytes) {
-	dataPayload *dp = (dataPayload*) m->data;
-	windowSlot ws = dp->ws;
+void handleDataMessage(void *m, int bytes) {
+	dataMessage *dm = (dataMessage*) m;
 	log_debug("handling data with counter= %d, index = %d from process %d",
-			ws.lamportCounter, ws.index, m->pid);
+			dm->lamportCounter, dm->index, dm->pid);
 	switch (currentSession.state) {
 	case STATE_RECEIVING:
 	case STATE_SENDING:
-		if (ws.lamportCounter > currentSession.localClock)
-			currentSession.localClock = ws.lamportCounter;
-		if (putInBuffer(m)) {
-			if (ws.index
-					> currentSession.lastInOrderReceivedIndexes[m->pid - 1]) {
-				u_int32_t currentPointer = getPointerOfIndex(m->pid,
-						currentSession.lastInOrderReceivedIndexes[m->pid - 1]);
+		if (dm->lamportCounter > currentSession.localClock)
+			currentSession.localClock = dm->lamportCounter;
+		if (putInBuffer(dm)) {
+			if (dm->index
+					> currentSession.lastInOrderReceivedIndexes[dm->pid - 1]) {
+				u_int32_t currentPointer = getPointerOfIndex(dm->pid,
+						currentSession.lastInOrderReceivedIndexes[dm->pid - 1]);
 				u_int32_t lastInOrderIndex =
-						currentSession.dataMatrix[m->pid][currentPointer].index;
+						currentSession.dataMatrix[dm->pid][currentPointer].index;
 				u_int32_t nackIndices[currentSession.windowSize];
 				int counter = 0;
-				while (currentPointer != getPointerOfIndex(m->pid, ws.index)) {
-					if (currentSession.dataMatrix[m->pid - 1][currentPointer].index
+				while (currentPointer != getPointerOfIndex(dm->pid, dm->index)) {
+					if (currentSession.dataMatrix[dm->pid - 1][currentPointer].index
 							< lastInOrderIndex) {
 						nackIndices[counter++] =
-								currentSession.dataMatrix[m->pid - 1][currentPointer].index;
+								currentSession.dataMatrix[dm->pid - 1][currentPointer].index;
 					}
 					currentPointer = (currentPointer + 1)
 							% currentSession.windowSize;
 				}
 				if (counter > 0)
-					sendNack(m->pid, nackIndices, counter);
+					sendNack(dm->pid, nackIndices, counter);
 			}
 		}
-		updateLastDeliveredCounter(m->pid, m->lastDeliveredCounter);
+		updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
 
 		break;
 	default:
@@ -518,27 +521,30 @@ u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
 			% currentSession.windowSize;
 }
 
-int putInBuffer(message *m) {
-	dataPayload *dp = (dataPayload*) m->data;
-	windowSlot ws = dp->ws;
+int putInBuffer(dataMessage *m) {
+
 	windowSlot *currentWindowSlot = currentSession.dataMatrix[m->pid - 1];
+	windowSlot ws;
 	u_int32_t currentWindowStartPointer =
 			currentSession.windowStartPointers[m->pid - 1];
 	u_int32_t startIndex = currentWindowSlot[currentWindowStartPointer].index;
 
 	// Check if the received packet's index is in the valid range for me to store
-	if (ws.index > currentSession.lastInOrderReceivedIndexes[m->pid - 1]
-			&& ws.index < (startIndex + currentSession.windowSize)) {
+	if (m->index > currentSession.lastInOrderReceivedIndexes[m->pid - 1]
+			&& m->index < (startIndex + currentSession.windowSize)) {
 		log_debug("putting in buffer, counter %d, index %d from process %d",
-				ws.lamportCounter, ws.index, m->pid);
-		currentWindowSlot[getPointerOfIndex(m->pid, ws.index)] = ws;
+				m->lamportCounter, m->index, m->pid);
+		ws.index = m->index;
+		ws.lamportCounter = m->lamportCounter;
+		ws.randomNumber = m->randomNumber;
+		currentWindowSlot[getPointerOfIndex(m->pid, m->index)] = ws;
 		updateLastReceivedIndex(m->pid);
-		checkForDeliveryConditions(ws.lamportCounter);
+		checkForDeliveryConditions(m->lamportCounter);
 		return 1;
 	}
 	log_debug(
 			"not putting in buffer (retransmitted data), counter %d, index %d from process %d",
-			ws.lamportCounter, ws.index, m->pid);
+			m->lamportCounter, m->index, m->pid);
 	return 0;
 }
 
