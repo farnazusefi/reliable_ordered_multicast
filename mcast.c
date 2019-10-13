@@ -307,6 +307,7 @@ void initializeBuffers() {
 	currentSession.lastSentIndex = 0;
 	currentSession.windowStartIndex = 0;
 	currentSession.isFinalDelivery = 0;
+	currentSession.lastDeliveredCounter = 0;
 	currentSession.windowSize = WINDOW_SIZE;
 	srand(time(0));
 	prepareFile();
@@ -738,12 +739,12 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 	char message[payloadSize+12];
 	message[0] = type;
 	message[4] = currentSession.machineIndex;
-	message[8] = currentSession.lastDeliveredCounter;
+	message[8] = currentSession.lastDeliveredCounters[currentSession.machineIndex-1];
 	memcpy(message + 12, dp, payloadSize);
 	log_trace("sending:");
 	int j;
 	for(j = 0; j < 12; j++)
-		printf("oo%02X", message[j]);
+		log_trace("%02X", message[j]);
 	log_trace("\n");
 	sendto(currentSession.sendingSocket, &message, payloadSize+12, 0,
 			(struct sockaddr*) &currentSession.sendAddr,
