@@ -39,6 +39,7 @@ enum TYPE {
 typedef struct sessionT {
 	enum STATE state;
 	int numberOfMachines;
+	int delay;
 	windowSlot **dataMatrix;
 	//TODO remove garbage if it is not needed!
 	u_int32_t *lastInOrderReceivedIndexes;
@@ -120,7 +121,7 @@ void resendMessage(u_int32_t index);
 
 session currentSession;
 
-int main() {
+int main(int argc, char** argv) {
 	struct sockaddr_in name;
 
 	int mcast_addr;
@@ -133,8 +134,30 @@ int main() {
 	int num;
 	char mess_buf[MAX_MESS_LEN];
 	struct timeval timeout;
-
+	int debug_mode = 3;
 	mcast_addr = 225 << 24 | 1 << 16 | 3 << 8 | 50; /* (225.1.3.50) */
+
+
+
+    if(argc != 5 && argc != 7)
+    {
+        printf("Usage: ./mcast <num of packets> <machine index> <num of machines> <loss rate> [delay] [debug mode(1-5)]  \n");
+        exit(1);
+    }
+
+    // optional args
+    if(argc == 7)
+    {
+        debug_mode = atoi(argv[6]);
+        currentSession.delay = atoi(argv[5]);
+
+        printf("debug mode = %d, delay = %d \n", debug_mode, currentSession.delay);
+    }
+    log_set_level(debug_mode);
+    currentSession.numberOfPackets = atoi(argv[1]);
+    currentSession.machineIndex = atoi(argv[2]);
+    currentSession.numberOfMachines = atoi(argv[3]);
+    currentSession.lossRate = atoi(argv[4]);
 
 	currentSession.receivingSocket = socket(AF_INET, SOCK_DGRAM, 0); /* socket for receiving */
 	if (currentSession.receivingSocket < 0) {
