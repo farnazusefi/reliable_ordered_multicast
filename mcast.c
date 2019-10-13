@@ -23,8 +23,9 @@ typedef struct dataMessageT {
 	u_int32_t pid;
 	u_int32_t lastDeliveredCounter;
 	u_int32_t index;
-	u_int32_t randomNumber;
 	u_int32_t lamportCounter;
+	u_int32_t randomNumber;
+
 	char *garbage;
 } dataMessage;
 
@@ -113,7 +114,7 @@ void initializeBuffers();
 
 void initializeAndSendRandomNumber(int moveStartPointer);
 
-void sendMessage(enum TYPE type, char *dp);
+void sendMessage(enum TYPE type, char *dp, int payloadSize);
 
 int putInBuffer(dataMessage *m);
 
@@ -311,7 +312,7 @@ void handleTimeOut(u_int32_t pid) {
 	char pollMsg[4];
 	log_debug("Sending POLL for pid=%d", pid);
 	pollMsg[0] = pid;
-	sendMessage(TYPE_POLL, pollMsg);
+	sendMessage(TYPE_POLL, pollMsg, 4);
 }
 
 void checkTimeoutForOthers() {
@@ -370,7 +371,7 @@ void handlePollMessage(void *m, int bytes) {
 	else if (currentSession.state == STATE_RECEIVING) {
 		char data[1412];
 		data[0] = 0;
-		sendMessage(STATE_FINALIZING, data);
+		sendMessage(STATE_FINALIZING, data, 1412);
 	}
 }
 
@@ -405,7 +406,7 @@ void resendMessage(u_int32_t index) {
 
 	if (index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
-	sendMessage(type, data);
+	sendMessage(type, data, 1412);
 }
 
 void handleFeedbackMessage(message *m, int bytes) {
@@ -519,7 +520,7 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 		data[(4 * i) + 8] = indexes[i - 1];
 	}
 
-	sendMessage(TYPE_FEEDBACK, data);
+	sendMessage(TYPE_FEEDBACK, data, 4 + sizeof(u_int32_t) * length);
 }
 
 u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
@@ -645,7 +646,7 @@ void checkForDeliveryConditions(u_int32_t receivedCounter) {
 		data[4] = currentSession.lastDeliveredCounter;
 		log_debug("Acknowledging data for clock %d",
 				currentSession.lastDeliveredCounter);
-		sendMessage(TYPE_FEEDBACK, data);
+		sendMessage(TYPE_FEEDBACK, data, 8);
 	}
 	checkTermination();
 }
@@ -725,17 +726,17 @@ void initializeAndSendRandomNumber(int moveStartpointer) {
 	log_debug("sending data message with number %d, clock %d, index %d",
 			randomNumber, currentSession.localClock,
 			currentSession.lastSentIndex);
-	sendMessage(type, data);
+	sendMessage(type, data, 1412);
 
 }
 
-void sendMessage(enum TYPE type, char *dp) {
-	message m;
-	m.type = type;
-	m.pid = currentSession.machineIndex;
-	m.lastDeliveredCounter = currentSession.lastDeliveredCounter;
-	m.data = dp;
-	sendto(currentSession.sendingSocket, &m, sizeof(m), 0,
+void sendMessage(enum TYPE type, char *dp, int payloadSize) {
+	char message[payloadSize+12];
+	message[0] = type;
+	message[4] = currentSession.machineIndex;
+	message[8] = currentSession.lastDeliveredCounter;
+	memcpy(message + 12, dp, payloadSize);
+	sendto(currentSession.sendingSocket, &message, payloadSize+12, 0,
 			(struct sockaddr*) &currentSession.sendAddr,
 			sizeof(currentSession.sendAddr));
 }
