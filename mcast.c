@@ -263,20 +263,20 @@ void initializeBuffers() {
 
 	u_int32_t i;
 	log_info("initializing buffers");
-	currentSession.lastDeliveredCounters = (u_int32_t*) calloc(currentSession.numberOfMachines * sizeof(u_int32_t), 0);
-	currentSession.lastInOrderReceivedIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines * sizeof(u_int32_t), 0);
-	currentSession.windowStartPointers = (u_int32_t*) calloc(currentSession.numberOfMachines * sizeof(u_int32_t), 0);
-	currentSession.readyForDelivery = (u_int32_t*) calloc(currentSession.numberOfMachines * sizeof(u_int32_t), 0);
-	currentSession.highestReceivedIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines * sizeof(u_int32_t), 0);
-	currentSession.finalizedProcessesLastIndices = (u_int32_t*) calloc(currentSession.numberOfMachines * sizeof(u_int32_t), 0);
-	currentSession.lastDeliveredIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines * sizeof(u_int32_t), 0);
+	currentSession.lastDeliveredCounters = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
+	currentSession.lastInOrderReceivedIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
+	currentSession.windowStartPointers = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
+	currentSession.readyForDelivery = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
+	currentSession.highestReceivedIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
+	currentSession.finalizedProcessesLastIndices = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
+	currentSession.lastDeliveredIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
 	currentSession.timoutTimestamps = (struct timeval*) malloc(currentSession.numberOfMachines * sizeof(struct timeval));
 	currentSession.windowSize = WINDOW_SIZE;
 
 	currentSession.dataMatrix = (windowSlot**) malloc(currentSession.numberOfMachines * sizeof(windowSlot*));
 
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		currentSession.dataMatrix[i] = (windowSlot*) calloc(currentSession.windowSize * sizeof(windowSlot), 0);
+		currentSession.dataMatrix[i] = (windowSlot*) calloc(currentSession.windowSize, sizeof(windowSlot));
 	}
 	log_info("window slot 0_0: %d, %d, %d", currentSession.dataMatrix[0][0].index, currentSession.dataMatrix[0][0].lamportCounter, currentSession.dataMatrix[0][0].randomNumber);
 	log_info("window slot 0_2: %d, %d, %d", currentSession.dataMatrix[0][2].index, currentSession.dataMatrix[0][2].lamportCounter, currentSession.dataMatrix[0][2].randomNumber);
