@@ -272,7 +272,7 @@ void initializeBuffers() {
 	currentSession.lastDeliveredIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
 	currentSession.timoutTimestamps = (struct timeval*) malloc(currentSession.numberOfMachines * sizeof(struct timeval));
 	currentSession.windowSize = WINDOW_SIZE;
-
+	currentSession.readyForDelivery[currentSession.machineIndex - 1] = 1;
 	currentSession.dataMatrix = (windowSlot**) malloc(currentSession.numberOfMachines * sizeof(windowSlot*));
 
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
@@ -590,11 +590,16 @@ void checkForDeliveryConditions(u_int32_t receivedCounter) {
 		return;
 	}
 	if ((receivedCounter - currentSession.lastDeliveredCounter) < 2)
+	{
+		log_debug("received counter (%d) is not much greater than local clock (%d). not delivering", receivedCounter, currentSession.lastDeliveredCounter);
 		return;
+	}
 	int i;
 	for (i = 0; i < currentSession.numberOfMachines; i++)
-		if (!currentSession.readyForDelivery[i])
+		if (!currentSession.readyForDelivery[i]){
+			log_debug("process (%d) is not ready for delivery. not delivering", i+1);
 			return; // TODO: Maybe POLL process here
+		}
 	while (dataRemaining()) {
 		deliverLowestData();
 	}
