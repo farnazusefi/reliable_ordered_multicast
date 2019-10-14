@@ -540,7 +540,7 @@ void deliverLowestData() {
 	u_int32_t minimumClock = -1;
 	u_int32_t minimumPID, minimumIndex, randomData;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		if (currentSession.readyForDelivery[i])
+		if (!currentSession.readyForDelivery[i])
 			continue;
 		if (currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].lamportCounter < minimumClock) {
 			minimumClock = currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].lamportCounter;
