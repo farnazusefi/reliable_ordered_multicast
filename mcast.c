@@ -271,6 +271,7 @@ void initializeBuffers() {
 	currentSession.finalizedProcessesLastIndices = (u_int32_t*) calloc(currentSession.numberOfMachines * sizeof(u_int32_t), 0);
 	currentSession.lastDeliveredIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines * sizeof(u_int32_t), 0);
 	currentSession.timoutTimestamps = (struct timeval*) malloc(currentSession.numberOfMachines * sizeof(struct timeval));
+	currentSession.windowSize = WINDOW_SIZE;
 
 	currentSession.dataMatrix = (windowSlot**) malloc(currentSession.numberOfMachines * sizeof(windowSlot*));
 
@@ -286,7 +287,6 @@ void initializeBuffers() {
 	currentSession.lastSentIndex = 0;
 	currentSession.isFinalDelivery = 0;
 	currentSession.lastDeliveredCounter = 0;
-	currentSession.windowSize = WINDOW_SIZE;
 	srand(time(0));
 	prepareFile();
 }
