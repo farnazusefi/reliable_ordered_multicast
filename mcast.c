@@ -535,10 +535,11 @@ u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
 	windowSlot *currentWindowSlot = currentSession.dataMatrix[pid - 1];
 	u_int32_t currentWindowStartPointer = currentSession.windowStartPointers[pid
 			- 1];
-
-	return (currentWindowStartPointer
+	u_int32_t pointer = (currentWindowStartPointer
 			+ (index - currentWindowSlot[currentWindowStartPointer].index)-1)
 			% currentSession.windowSize;
+	log_debug("pointer to index %d of process %d is %d", index, pid, pointer);
+	return pointer;
 }
 
 int putInBuffer(dataMessage *m) {
@@ -552,8 +553,8 @@ int putInBuffer(dataMessage *m) {
 	// Check if the received packet's index is in the valid range for me to store
 	if (m->index > currentSession.lastInOrderReceivedIndexes[m->pid - 1]
 			&& m->index < (startIndex + currentSession.windowSize)) {
-		log_debug("putting in buffer, counter %d, index %d from process %d",
-				m->lamportCounter, m->index, m->pid);
+		log_debug("putting in buffer, counter %d, index %d from process %d to position %d",
+				m->lamportCounter, m->index, m->pid, getPointerOfIndex(m->pid, m->index));
 		ws.index = m->index;
 		ws.lamportCounter = m->lamportCounter;
 		ws.randomNumber = m->randomNumber;
@@ -668,11 +669,11 @@ void updateLastReceivedIndex(u_int32_t pid) {
 			currentSession.lastInOrderReceivedIndexes[pid - 1];
 	u_int32_t windowStartPointer = currentSession.windowStartPointers[pid - 1];
 	u_int32_t lastValidIndexPointer = getPointerOfIndex(pid, lastValidIndex);
-	log_debug("Updating last received index");
 
 	if (lastValidIndex == 0) {
 		currentWindowSlot[lastValidIndexPointer].valid = 1;
 		currentSession.lastInOrderReceivedIndexes[pid - 1] = 1;
+		log_debug("Updating last received index to 1");
 		return;
 	}
 	u_int32_t searchingPointer = (lastValidIndexPointer + 1)
@@ -683,6 +684,7 @@ void updateLastReceivedIndex(u_int32_t pid) {
 		currentSession.lastInOrderReceivedIndexes[pid - 1]++;
 		searchingPointer = (searchingPointer + 1) % currentSession.windowSize;
 		currentSession.readyForDelivery[pid - 1] = 1;
+		log_debug("Updating last received index to %d", currentSession.lastInOrderReceivedIndexes[pid - 1]);
 
 	}
 
