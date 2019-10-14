@@ -538,6 +538,9 @@ void deliverLowestData() {
 	u_int32_t minimumClock = -1;
 	u_int32_t minimumPID, minimumIndex, randomData;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
+		// TODO: Add a seperate array containing delivery status of our messages
+		// TODO: if i == crrent machine -1
+		// 			go forward in window till you reach a n undelivered slot
 		if (!currentSession.readyForDelivery[i])
 			continue;
 		if (currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].lamportCounter < minimumClock) {
@@ -547,7 +550,7 @@ void deliverLowestData() {
 			randomData = currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].randomNumber;
 		}
 	}
-	log_debug("delivering to file, counter %d, index %d from process %d, data: %d", minimumClock, minimumIndex, minimumPID, randomData);
+	log_debug("delivering to file, counter %d, index %d from process %d, data: %d", minimumClock, minimumIndex, minimumPID+1, randomData);
 
 	deliverToFile(minimumPID+1, minimumIndex, randomData, minimumClock);
 }
@@ -740,6 +743,10 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData, u_int32
 			log_debug("process %d has more to deliver to file", pid);
 			currentSession.readyForDelivery[pid - 1] = 1;
 		}
+	}
+	else {
+		currentSession.readyForDelivery[pid - 1] = 0;
+		//TODO: set ready for delivery to 1 on a certain condition
 	}
 
 }
