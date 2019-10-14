@@ -117,7 +117,8 @@ void synchronizeWindow();
 
 void initializeBuffers();
 
-void initializeAndSendRandomNumber(int moveStartPointer);
+void initializeAndSendRandomNumber(int moveStartPointer,
+		u_int32_t destinationPtr);
 
 void sendMessage(enum TYPE type, char *dp, int payloadSize);
 
@@ -510,7 +511,7 @@ void synchronizeWindow() {
 						- 1];
 		if (currentSession.dataMatrix[currentSession.machineIndex - 1][windowStartPointer].lamportCounter
 				<= minimumOfWindow && currentSession.state == STATE_SENDING) {
-			initializeAndSendRandomNumber(1);
+			initializeAndSendRandomNumber(1, 0);
 		} else
 			break;
 	}
@@ -535,8 +536,10 @@ u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
 	windowSlot *currentWindowSlot = currentSession.dataMatrix[pid - 1];
 	u_int32_t currentWindowStartPointer = currentSession.windowStartPointers[pid
 			- 1];
+	if (!currentWindowSlot[currentWindowStartPointer].index)
+		return 0;
 	u_int32_t pointer = (currentWindowStartPointer
-			+ (index - currentWindowSlot[currentWindowStartPointer].index)-1)
+			+ (index - currentWindowSlot[currentWindowStartPointer].index))
 			% currentSession.windowSize;
 	log_debug("pointer to index %d of process %d is %d", index, pid, pointer);
 	return pointer;
@@ -549,12 +552,16 @@ int putInBuffer(dataMessage *m) {
 	u_int32_t currentWindowStartPointer =
 			currentSession.windowStartPointers[m->pid - 1];
 	u_int32_t startIndex = currentWindowSlot[currentWindowStartPointer].index;
-	log_debug("putInBuffer Condition Check, last inorder received idx = %d, startIndex = %d", currentSession.lastInOrderReceivedIndexes[m->pid - 1], startIndex);
+	log_debug(
+			"putInBuffer Condition Check, last inorder received idx = %d, startIndex = %d",
+			currentSession.lastInOrderReceivedIndexes[m->pid - 1], startIndex);
 	// Check if the received packet's index is in the valid range for me to store
 	if (m->index > currentSession.lastInOrderReceivedIndexes[m->pid - 1]
 			&& m->index < (startIndex + currentSession.windowSize)) {
-		log_debug("putting in buffer, counter %d, index %d from process %d to position %d",
-				m->lamportCounter, m->index, m->pid, getPointerOfIndex(m->pid, m->index));
+		log_debug(
+				"putting in buffer, counter %d, index %d from process %d to position %d",
+				m->lamportCounter, m->index, m->pid,
+				getPointerOfIndex(m->pid, m->index));
 		ws.index = m->index;
 		ws.lamportCounter = m->lamportCounter;
 		ws.randomNumber = m->randomNumber;
@@ -671,7 +678,6 @@ void updateLastReceivedIndex(u_int32_t pid) {
 	u_int32_t lastValidIndexPointer = getPointerOfIndex(pid, lastValidIndex);
 
 	if (lastValidIndex == 0) {
-		currentWindowSlot[lastValidIndexPointer].valid = 1;
 		currentSession.lastInOrderReceivedIndexes[pid - 1] = 1;
 		log_debug("Updating last received index to 1");
 		return;
@@ -684,7 +690,8 @@ void updateLastReceivedIndex(u_int32_t pid) {
 		currentSession.lastInOrderReceivedIndexes[pid - 1]++;
 		searchingPointer = (searchingPointer + 1) % currentSession.windowSize;
 		currentSession.readyForDelivery[pid - 1] = 1;
-		log_debug("Updating last received index to %d", currentSession.lastInOrderReceivedIndexes[pid - 1]);
+		log_debug("Updating last received index to %d",
+				currentSession.lastInOrderReceivedIndexes[pid - 1]);
 
 	}
 
@@ -717,11 +724,12 @@ void startSending() {
 	int i;
 	log_debug("Sending our window");
 	for (i = 0; i < currentSession.windowSize; i++) {
-		initializeAndSendRandomNumber(0);
+		initializeAndSendRandomNumber(0, i);
 	}
 }
 
-void initializeAndSendRandomNumber(int moveStartpointer) {
+void initializeAndSendRandomNumber(int moveStartpointer,
+		u_int32_t destinationPtr) {
 	windowSlot ws;
 	u_int32_t type = TYPE_DATA;
 	u_int32_t randomNumber = rand();
@@ -734,10 +742,14 @@ void initializeAndSendRandomNumber(int moveStartpointer) {
 	ws.index = currentSession.lastSentIndex;
 	ws.lamportCounter = currentSession.localClock;
 	ws.randomNumber = randomNumber;
-	currentSession.dataMatrix[currentSession.machineIndex - 1][currentSession.windowStartPointers[currentSession.machineIndex
-			- 1]] = ws;
-	if (moveStartpointer)
+	if (!moveStartpointer) {
+		currentSession.dataMatrix[currentSession.machineIndex - 1][destinationPtr] =
+				ws;
+	} else {
+		currentSession.dataMatrix[currentSession.machineIndex - 1][currentSession.windowStartPointers[currentSession.machineIndex
+				- 1]] = ws;
 		currentSession.windowStartPointers[currentSession.machineIndex - 1]++;
+	}
 	memcpy(data + 12, garbage_data, 1400);
 	if (ws.index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
@@ -757,10 +769,10 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 					- 1], 4);
 	memcpy(message + 12, dp, payloadSize);
 	log_trace("sending:");
-	int j;
-	for (j = 0; j < 12; j++)
-		log_trace("%02X", message[j]);
-	log_trace("\n");
+//	int j;
+//	for (j = 0; j < 12; j++)
+//		log_trace("%02X", message[j]);
+//	log_trace("\n");
 	sendto(currentSession.sendingSocket, &message, payloadSize + 12, 0,
 			(struct sockaddr*) &currentSession.sendAddr,
 			sizeof(currentSession.sendAddr));
