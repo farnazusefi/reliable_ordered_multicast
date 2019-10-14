@@ -537,7 +537,7 @@ u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
 			- 1];
 
 	return (currentWindowStartPointer
-			+ (index - currentWindowSlot[currentWindowStartPointer].index))
+			+ (index - currentWindowSlot[currentWindowStartPointer].index)-1)
 			% currentSession.windowSize;
 }
 
