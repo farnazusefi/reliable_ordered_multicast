@@ -549,7 +549,7 @@ void deliverLowestData() {
 	}
 	log_debug("delivering to file, counter %d, index %d from process %d, data: %d", minimumClock, minimumIndex, minimumPID, randomData);
 
-	deliverToFile(minimumPID, minimumIndex, randomData, minimumClock);
+	deliverToFile(minimumPID+1, minimumIndex, randomData, minimumClock);
 }
 
 void checkTermination() {
