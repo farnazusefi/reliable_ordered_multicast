@@ -74,7 +74,6 @@ typedef struct sessionT {
 	u_int32_t lossRate;
 	u_int32_t windowSize;
 	u_int32_t lastSentIndex;
-	u_int32_t lastDeliveredCounter;
 
 	int sendingSocket;
 	int receivingSocket;
@@ -286,7 +285,6 @@ void initializeBuffers() {
 	currentSession.localClock = 0;
 	currentSession.lastSentIndex = 0;
 	currentSession.isFinalDelivery = 0;
-	currentSession.lastDeliveredCounter = 0;
 	srand(time(0));
 	prepareFile();
 }
@@ -589,15 +587,15 @@ void checkForDeliveryConditions(u_int32_t receivedCounter) {
 
 		return;
 	}
-	if ((receivedCounter - currentSession.lastDeliveredCounter) < 2)
+	if ((receivedCounter - currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]) < 2)
 	{
-		log_debug("received counter (%d) is not much greater than local clock (%d). not delivering", receivedCounter, currentSession.lastDeliveredCounter);
+		log_debug("received counter (%d) is not much greater than last delivered counter (%d). not delivering", receivedCounter, currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]);
 		return;
 	}
 	int i;
 	for (i = 0; i < currentSession.numberOfMachines; i++)
 		if (!currentSession.readyForDelivery[i]){
-			log_debug("process (%d) is not ready for delivery. not delivering", i+1);
+			log_debug("process (%d) is not ready for delivery. not delivering.", i+1);
 			return; // TODO: Maybe POLL process here
 		}
 	while (dataRemaining()) {
@@ -607,8 +605,8 @@ void checkForDeliveryConditions(u_int32_t receivedCounter) {
 		char data[8];
 		u_int32_t feedbackType = FEEDBACK_ACK;
 		memcpy(data, &feedbackType, 4);
-		memcpy(data + 4, &currentSession.lastDeliveredCounter, 4);
-		log_debug("Acknowledging data for clock %d", currentSession.lastDeliveredCounter);
+		memcpy(data + 4, &currentSession.lastDeliveredCounters[currentSession.machineIndex - 1], 4);
+		log_debug("Acknowledging data for clock %d", currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]);
 		sendMessage(TYPE_FEEDBACK, data, 8);
 	}
 	checkTermination();
@@ -723,23 +721,24 @@ void prepareFile() {
 }
 
 void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData, u_int32_t lts) {
+	log_debug("Writing to file");
 	fprintf(currentSession.f, "%2d, %8d, %8d\n", pid, index, randomData);
-	currentSession.lastDeliveredCounter = lts;
+	log_debug("Wrote to file");
 	currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = lts;
 	currentSession.lastDeliveredIndexes[pid - 1] = index;
 	windowSlot *wsArray = currentSession.dataMatrix[pid - 1];
 
+	// if not delivering my own data, move window
 	if (pid != currentSession.machineIndex) {
+		log_debug("Moving process %d receive window", pid);
 		wsArray[currentSession.windowStartPointers[pid - 1]].valid = 0;
 		currentSession.windowStartPointers[pid - 1] = (currentSession.windowStartPointers[pid - 1] + 1) % currentSession.windowSize;
 		u_int32_t currentIndex = wsArray[currentSession.windowStartPointers[pid - 1]].index;
 		currentSession.readyForDelivery[pid - 1] = 0;
-
-		while (currentIndex != currentSession.lastInOrderReceivedIndexes[pid - 1]) {
-			if (wsArray[currentIndex].lamportCounter <= currentSession.localClock - 1 || currentSession.isFinalDelivery) {
-				currentSession.readyForDelivery[pid - 1] = 1;
-				break;
-			}
+		// checking if process pid has more to deliver to file
+		if (wsArray[currentIndex].lamportCounter <= currentSession.localClock - 1 || currentSession.isFinalDelivery) {
+			log_debug("process %d has more to deliver to file", pid);
+			currentSession.readyForDelivery[pid - 1] = 1;
 		}
 	}
 
