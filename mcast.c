@@ -16,6 +16,7 @@ typedef struct windowSlotT {
 	u_int32_t index;
 	u_int32_t randomNumber;
 	u_int32_t lamportCounter;
+	u_int32_t valid;
 } windowSlot;
 
 typedef struct dataMessageT {
@@ -237,8 +238,7 @@ int main(int argc, char **argv) {
 	log_fatal("test");
 
 	log_info("Waiting for start message");
-	bytes = recv(currentSession.receivingSocket, mess_buf,
-			sizeof(mess_buf), 0);
+	bytes = recv(currentSession.receivingSocket, mess_buf, sizeof(mess_buf), 0);
 	mess_buf[bytes] = 0;
 	log_debug("received : %s\n", mess_buf);
 	parse((void*) mess_buf, bytes);
@@ -300,8 +300,8 @@ void initializeBuffers() {
 			currentSession.numberOfMachines * sizeof(windowSlot*));
 
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		currentSession.dataMatrix[i] = (windowSlot*) malloc(
-				currentSession.windowSize * sizeof(windowSlot));
+		currentSession.dataMatrix[i] = (windowSlot*) calloc(
+				currentSession.windowSize * sizeof(windowSlot), 0);
 	}
 	currentSession.localClock = 0;
 	currentSession.lastSentIndex = 0;
@@ -366,7 +366,7 @@ void parse(void *buf, int bytes) {
 }
 
 void handlePollMessage(void *m, int bytes) {
-	pollMessage * message = (pollMessage *) m;
+	pollMessage *message = (pollMessage*) m;
 	u_int32_t polledPid = message->pollPID;
 	log_debug("handling poll message from %d for %d", message->pid, polledPid);
 	if (polledPid != currentSession.machineIndex)
@@ -398,7 +398,7 @@ void handleFinalizeMessage(void *m, int bytes) {
 void resendMessage(u_int32_t index) {
 	u_int32_t type = TYPE_DATA;
 	windowSlot *myDataArray =
-			currentSession.dataMatrix[currentSession.machineIndex-1];
+			currentSession.dataMatrix[currentSession.machineIndex - 1];
 	windowSlot ws = myDataArray[getPointerOfIndex(currentSession.machineIndex,
 			index)];
 	char data[1412];
@@ -506,8 +506,9 @@ void synchronizeWindow() {
 
 	while (1) {
 		u_int32_t windowStartPointer =
-				currentSession.windowStartPointers[currentSession.machineIndex-1];
-		if (currentSession.dataMatrix[currentSession.machineIndex-1][windowStartPointer].lamportCounter
+				currentSession.windowStartPointers[currentSession.machineIndex
+						- 1];
+		if (currentSession.dataMatrix[currentSession.machineIndex - 1][windowStartPointer].lamportCounter
 				<= minimumOfWindow && currentSession.state == STATE_SENDING) {
 			initializeAndSendRandomNumber(1);
 		} else
@@ -556,6 +557,7 @@ int putInBuffer(dataMessage *m) {
 		ws.index = m->index;
 		ws.lamportCounter = m->lamportCounter;
 		ws.randomNumber = m->randomNumber;
+		ws.valid = 1;
 		currentWindowSlot[getPointerOfIndex(m->pid, m->index)] = ws;
 		updateLastReceivedIndex(m->pid);
 		checkForDeliveryConditions(m->lamportCounter);
@@ -665,21 +667,25 @@ void updateLastReceivedIndex(u_int32_t pid) {
 	u_int32_t lastValidIndex =
 			currentSession.lastInOrderReceivedIndexes[pid - 1];
 	u_int32_t windowStartPointer = currentSession.windowStartPointers[pid - 1];
-	u_int32_t lastValidIndexPointer = (windowStartPointer
-			+ (currentSession.lastInOrderReceivedIndexes[pid - 1]
-					- currentWindowSlot[windowStartPointer].index))
-			% currentSession.windowSize;
+	u_int32_t lastValidIndexPointer = getPointerOfIndex(pid, lastValidIndex);
 	log_debug("Updating last received index");
-	while (lastValidIndex
-			< currentWindowSlot[(lastValidIndexPointer + 1)
-					% currentSession.windowSize].index) {
-		currentSession.readyForDelivery[pid - 1] = 1;
-		lastValidIndex++;
-		lastValidIndexPointer = (lastValidIndexPointer + 1)
-				% currentSession.windowSize;
-		currentSession.lastInOrderReceivedIndexes[pid - 1] = lastValidIndex;
-		currentSession.readyForDelivery[pid - 1] = 1;
+
+	if (lastValidIndex == 0) {
+		currentWindowSlot[lastValidIndexPointer].valid = 1;
+		currentSession.lastInOrderReceivedIndexes[pid - 1] = 1;
+		return;
 	}
+	u_int32_t searchingPointer = (lastValidIndexPointer + 1)
+			% currentSession.windowSize;
+	while (searchingPointer != windowStartPointer) {
+		if (!currentWindowSlot[searchingPointer].valid)
+			break;
+		currentSession.lastInOrderReceivedIndexes[pid - 1]++;
+		searchingPointer = (searchingPointer + 1) % currentSession.windowSize;
+		currentSession.readyForDelivery[pid - 1] = 1;
+
+	}
+
 }
 
 void handleStartMessage(message *m, int bytes) {
@@ -726,10 +732,10 @@ void initializeAndSendRandomNumber(int moveStartpointer) {
 	ws.index = currentSession.lastSentIndex;
 	ws.lamportCounter = currentSession.localClock;
 	ws.randomNumber = randomNumber;
-	currentSession.dataMatrix[currentSession.machineIndex-1][currentSession.windowStartPointers[currentSession.machineIndex-1]] =
-			ws;
+	currentSession.dataMatrix[currentSession.machineIndex - 1][currentSession.windowStartPointers[currentSession.machineIndex
+			- 1]] = ws;
 	if (moveStartpointer)
-		currentSession.windowStartPointers[currentSession.machineIndex-1]++;
+		currentSession.windowStartPointers[currentSession.machineIndex - 1]++;
 	memcpy(data + 12, garbage_data, 1400);
 	if (ws.index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
@@ -741,17 +747,19 @@ void initializeAndSendRandomNumber(int moveStartpointer) {
 }
 
 void sendMessage(enum TYPE type, char *dp, int payloadSize) {
-	char message[payloadSize+12];
+	char message[payloadSize + 12];
 	memcpy(message, &type, 4);
 	memcpy(message + 4, &currentSession.machineIndex, 4);
-	memcpy(message + 8, &currentSession.lastDeliveredCounters[currentSession.machineIndex-1], 4);
+	memcpy(message + 8,
+			&currentSession.lastDeliveredCounters[currentSession.machineIndex
+					- 1], 4);
 	memcpy(message + 12, dp, payloadSize);
 	log_trace("sending:");
 	int j;
-	for(j = 0; j < 12; j++)
+	for (j = 0; j < 12; j++)
 		log_trace("%02X", message[j]);
 	log_trace("\n");
-	sendto(currentSession.sendingSocket, &message, payloadSize+12, 0,
+	sendto(currentSession.sendingSocket, &message, payloadSize + 12, 0,
 			(struct sockaddr*) &currentSession.sendAddr,
 			sizeof(currentSession.sendAddr));
 }
@@ -771,13 +779,15 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData,
 		u_int32_t lts) {
 	fprintf(currentSession.f, "%2d, %8d, %8d\n", pid, index, randomData);
 	currentSession.lastDeliveredCounter = lts;
-	currentSession.lastDeliveredCounters[currentSession.machineIndex-1] = lts;
+	currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = lts;
 	currentSession.lastDeliveredIndexes[pid - 1] = index;
+	windowSlot *wsArray = currentSession.dataMatrix[pid - 1];
+
 	if (pid != currentSession.machineIndex) {
+		wsArray[currentSession.windowStartPointers[pid - 1]].valid = 0;
 		currentSession.windowStartPointers[pid - 1] =
 				(currentSession.windowStartPointers[pid - 1] + 1)
 						% currentSession.windowSize;
-		windowSlot *wsArray = currentSession.dataMatrix[pid - 1];
 		u_int32_t currentIndex = wsArray[currentSession.windowStartPointers[pid
 				- 1]].index;
 		currentSession.readyForDelivery[pid - 1] = 0;
