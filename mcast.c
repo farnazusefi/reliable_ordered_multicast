@@ -74,6 +74,7 @@ typedef struct sessionT {
 	u_int32_t lossRate;
 	u_int32_t windowSize;
 	u_int32_t lastSentIndex;
+	u_int32_t lastDeliveredPointer;
 
 	int sendingSocket;
 	int receivingSocket;
@@ -277,14 +278,20 @@ void initializeBuffers() {
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		currentSession.dataMatrix[i] = (windowSlot*) calloc(currentSession.windowSize, sizeof(windowSlot));
 	}
-	log_info("window slot 0_0: %d, %d, %d", currentSession.dataMatrix[0][0].index, currentSession.dataMatrix[0][0].lamportCounter, currentSession.dataMatrix[0][0].randomNumber);
-	log_info("window slot 0_2: %d, %d, %d", currentSession.dataMatrix[0][2].index, currentSession.dataMatrix[0][2].lamportCounter, currentSession.dataMatrix[0][2].randomNumber);
-	log_info("window slot 1_0: %d, %d, %d", currentSession.dataMatrix[1][0].index, currentSession.dataMatrix[1][0].lamportCounter, currentSession.dataMatrix[1][0].randomNumber);
-	log_info("window slot 1_4: %d, %d, %d", currentSession.dataMatrix[1][4].index, currentSession.dataMatrix[1][4].lamportCounter, currentSession.dataMatrix[1][4].randomNumber);
-	log_info("window slot 2_3: %d, %d, %d", currentSession.dataMatrix[2][3].index, currentSession.dataMatrix[2][3].lamportCounter, currentSession.dataMatrix[2][3].randomNumber);
+	log_info("window slot 0_0: %d, %d, %d", currentSession.dataMatrix[0][0].index, currentSession.dataMatrix[0][0].lamportCounter,
+			currentSession.dataMatrix[0][0].randomNumber);
+	log_info("window slot 0_2: %d, %d, %d", currentSession.dataMatrix[0][2].index, currentSession.dataMatrix[0][2].lamportCounter,
+			currentSession.dataMatrix[0][2].randomNumber);
+	log_info("window slot 1_0: %d, %d, %d", currentSession.dataMatrix[1][0].index, currentSession.dataMatrix[1][0].lamportCounter,
+			currentSession.dataMatrix[1][0].randomNumber);
+	log_info("window slot 1_4: %d, %d, %d", currentSession.dataMatrix[1][4].index, currentSession.dataMatrix[1][4].lamportCounter,
+			currentSession.dataMatrix[1][4].randomNumber);
+	log_info("window slot 2_3: %d, %d, %d", currentSession.dataMatrix[2][3].index, currentSession.dataMatrix[2][3].lamportCounter,
+			currentSession.dataMatrix[2][3].randomNumber);
 	currentSession.localClock = 0;
 	currentSession.lastSentIndex = 0;
 	currentSession.isFinalDelivery = 0;
+	currentSession.lastDeliveredPointer = 0;
 	srand(time(0));
 	prepareFile();
 }
@@ -528,7 +535,7 @@ int putInBuffer(dataMessage *m) {
 int dataRemaining() {
 	int i;
 	for (i = 0; i < currentSession.numberOfMachines; i++)
-		if (currentSession.readyForDelivery)
+		if (currentSession.readyForDelivery[i])
 			return 1;
 	return 0;
 }
@@ -538,21 +545,33 @@ void deliverLowestData() {
 	u_int32_t minimumClock = -1;
 	u_int32_t minimumPID, minimumIndex, randomData;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		// TODO: Add a seperate array containing delivery status of our messages
-		// TODO: if i == crrent machine -1
-		// 			go forward in window till you reach a n undelivered slot
-		if (!currentSession.readyForDelivery[i])
-			continue;
-		if (currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].lamportCounter < minimumClock) {
-			minimumClock = currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].lamportCounter;
-			minimumPID = i;
-			minimumIndex = currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].index;
-			randomData = currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].randomNumber;
+		// 			go forward in window till you reach an undelivered slot
+		if (i == currentSession.machineIndex - 1) {
+			u_int32_t nextReadyForDeliveryPtr;
+			if (!currentSession.readyForDelivery[i])
+				continue;
+			nextReadyForDeliveryPtr = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
+			if (currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter < minimumClock) {
+				minimumClock = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter;
+				minimumPID = i;
+				minimumIndex = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].index;
+				randomData = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].randomNumber;
+			}
+		} else {
+			if (!currentSession.readyForDelivery[i])
+				continue;
+			if (currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].lamportCounter < minimumClock) {
+				minimumClock = currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].lamportCounter;
+				minimumPID = i;
+				minimumIndex = currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].index;
+				randomData = currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].randomNumber;
+			}
 		}
-	}
-	log_debug("delivering to file, counter %d, index %d from process %d, data: %d", minimumClock, minimumIndex, minimumPID+1, randomData);
 
-	deliverToFile(minimumPID+1, minimumIndex, randomData, minimumClock);
+	}
+	log_debug("delivering to file, counter %d, index %d from process %d, data: %d", minimumClock, minimumIndex, minimumPID + 1, randomData);
+
+	deliverToFile(minimumPID + 1, minimumIndex, randomData, minimumClock);
 }
 
 void checkTermination() {
@@ -590,15 +609,15 @@ void checkForDeliveryConditions(u_int32_t receivedCounter) {
 
 		return;
 	}
-	if ((receivedCounter - currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]) < 2)
-	{
-		log_debug("received counter (%d) is not much greater than last delivered counter (%d). not delivering", receivedCounter, currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]);
+	if ((receivedCounter - currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]) < 2) {
+		log_debug("received counter (%d) is not much greater than last delivered counter (%d). not delivering", receivedCounter,
+				currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]);
 		return;
 	}
 	int i;
 	for (i = 0; i < currentSession.numberOfMachines; i++)
-		if (!currentSession.readyForDelivery[i]){
-			log_debug("process (%d) is not ready for delivery. not delivering.", i+1);
+		if (!currentSession.readyForDelivery[i]) {
+			log_debug("process (%d) is not ready for delivery. not delivering.", i + 1);
 			return; // TODO: Maybe POLL process here
 		}
 	while (dataRemaining()) {
@@ -730,23 +749,28 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData, u_int32
 	currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = lts;
 	currentSession.lastDeliveredIndexes[pid - 1] = index;
 	windowSlot *wsArray = currentSession.dataMatrix[pid - 1];
+	currentSession.readyForDelivery[pid - 1] = 0;
 
 	// if not delivering my own data, move window
 	if (pid != currentSession.machineIndex) {
 		log_debug("Moving process %d receive window", pid);
+		// invalidate the data in the window start
 		wsArray[currentSession.windowStartPointers[pid - 1]].valid = 0;
+		// move window start pointer
 		currentSession.windowStartPointers[pid - 1] = (currentSession.windowStartPointers[pid - 1] + 1) % currentSession.windowSize;
-		u_int32_t currentIndex = wsArray[currentSession.windowStartPointers[pid - 1]].index;
-		currentSession.readyForDelivery[pid - 1] = 0;
+
 		// checking if process pid has more to deliver to file
-		if (wsArray[currentIndex].lamportCounter <= currentSession.localClock - 1 || currentSession.isFinalDelivery) {
+		if (wsArray[currentSession.windowStartPointers[pid - 1]].lamportCounter <= currentSession.localClock - 1 || currentSession.isFinalDelivery) {
 			log_debug("process %d has more to deliver to file", pid);
 			currentSession.readyForDelivery[pid - 1] = 1;
 		}
-	}
-	else {
-		currentSession.readyForDelivery[pid - 1] = 0;
-		//TODO: set ready for delivery to 1 on a certain condition
+	} else {
+		u_int32_t lastDeliveredPointer = getPointerOfIndex(pid, index);
+		if (wsArray[(lastDeliveredPointer + 1) % currentSession.windowSize].lamportCounter <= currentSession.localClock - 1 || currentSession.isFinalDelivery) {
+			log_debug("we %d have more to deliver to file", pid);
+			currentSession.readyForDelivery[pid - 1] = 1;
+		}
+
 	}
 
 }
