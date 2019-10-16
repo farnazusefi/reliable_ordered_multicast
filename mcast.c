@@ -765,7 +765,7 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData, u_int32
 
 		// checking if process pid has more to deliver to file
 		if (wsArray[currentSession.windowStartPointers[pid - 1]].lamportCounter <= currentSession.localClock - 1 || currentSession.isFinalDelivery) {
-			log_debug("process %d has more to deliver to file", pid);
+			log_debug("process %d has more to deliver to file, counter of data %d", pid, wsArray[currentSession.windowStartPointers[pid - 1]].lamportCounter);
 			currentSession.readyForDelivery[pid - 1] = 1;
 		}
 	} else {
