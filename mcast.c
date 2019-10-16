@@ -567,6 +567,8 @@ void deliverLowestData() {
 				minimumPID = i;
 				minimumIndex = currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].index;
 				randomData = currentSession.dataMatrix[i][currentSession.windowStartPointers[i]].randomNumber;
+				log_debug("changing minimum: clock %d pid %d index %d data %d", minimumClock, minimumPID, minimumIndex, randomData);
+
 			}
 		}
 
