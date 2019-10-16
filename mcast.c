@@ -764,8 +764,8 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData, u_int32
 		currentSession.windowStartPointers[pid - 1] = (currentSession.windowStartPointers[pid - 1] + 1) % currentSession.windowSize;
 
 		// checking if process pid has more to deliver to file
-		if (wsArray[currentSession.windowStartPointers[pid - 1]].lamportCounter <= currentSession.localClock - 1 || currentSession.isFinalDelivery) {
-			log_debug("process %d has more to deliver to file, counter of data %d", pid, wsArray[currentSession.windowStartPointers[pid - 1]].lamportCounter);
+		if ((!wsArray[currentSession.windowStartPointers[pid - 1]].valid && wsArray[currentSession.windowStartPointers[pid - 1]].lamportCounter <= currentSession.localClock - 1) || currentSession.isFinalDelivery) {
+			log_debug("process %d has more to deliver to file, counter of data %d valid? %d", pid, wsArray[currentSession.windowStartPointers[pid - 1]].lamportCounter, wsArray[currentSession.windowStartPointers[pid - 1]].valid);
 			currentSession.readyForDelivery[pid - 1] = 1;
 		}
 	} else {
