@@ -556,6 +556,8 @@ void deliverLowestData() {
 				minimumPID = i;
 				minimumIndex = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].index;
 				randomData = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].randomNumber;
+				log_debug("changing minimum: clock %d pid %d index %d data %d", minimumClock, minimumPID, minimumIndex, randomData);
+
 			}
 		} else {
 			if (!currentSession.readyForDelivery[i])
@@ -636,7 +638,7 @@ void checkForDeliveryConditions(u_int32_t receivedCounter) {
 
 void updateLastReceivedIndex(u_int32_t pid) {
 
-	windowSlot *currentWindowSlot = currentSession.dataMatrix[pid - 1];
+	windowSlot *currentWindowSlots = currentSession.dataMatrix[pid - 1];
 	u_int32_t lastValidIndex = currentSession.lastInOrderReceivedIndexes[pid - 1];
 	u_int32_t windowStartPointer = currentSession.windowStartPointers[pid - 1];
 	u_int32_t lastValidIndexPointer = getPointerOfIndex(pid, lastValidIndex);
@@ -648,7 +650,7 @@ void updateLastReceivedIndex(u_int32_t pid) {
 	}
 	u_int32_t searchingPointer = (lastValidIndexPointer + 1) % currentSession.windowSize;
 	while (searchingPointer != windowStartPointer) {
-		if (!currentWindowSlot[searchingPointer].valid)
+		if (!currentWindowSlots[searchingPointer].valid)
 			break;
 		currentSession.lastInOrderReceivedIndexes[pid - 1]++;
 		searchingPointer = (searchingPointer + 1) % currentSession.windowSize;
