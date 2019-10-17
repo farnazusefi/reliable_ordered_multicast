@@ -510,7 +510,7 @@ u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
 //	log_debug("pointer to index %d of process %d is %d", index, pid, pointer);
 //	return pointer;
 
-	return index % (currentSession.windowSize + 1);
+	return (index - 1) % currentSession.windowSize;
 }
 
 void sendAck() {
