@@ -379,7 +379,7 @@ void handlePollMessage(void *m, int bytes) {
 void handleFinalizeMessage(void *m, int bytes) {
 
 	dataMessage *dm = (dataMessage*) m;
-	log_debug("received finalize message from %d, with index %d", dm->pid, dm->index);
+	log_error("received finalize message from %d, with index %d", dm->pid, dm->index);
 	if (dm->index == 0) {
 		currentSession.finalizedProcessesLastIndices[dm->pid - 1] = 1;
 		currentSession.lastDeliveredCounters[dm->pid - 1] = 1;
@@ -629,7 +629,7 @@ void attemptDelivery() {
 	while (dataRemaining()) {
 		getLowestToDeliver(&pid, &pointer);
 		ws = currentSession.dataMatrix[pid - 1][pointer];
-		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
+		log_warn("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 
 		deliverToFile(pid, ws.index, ws.randomNumber);
 		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = ws.lamportCounter;
