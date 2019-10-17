@@ -327,26 +327,26 @@ void parse(void *buf, int bytes) {
 	log_debug("parsing ...");
 	switch (m->type) {
 	case TYPE_START:
-		log_error("%d", m->type);
+		//log_error("%d", m->type);
 		handleStartMessage(m, bytes);
 		break;
 	case TYPE_DATA:
-		log_error("%d", m->type);
+		//log_error("%d", m->type);
 
 		handleDataMessage(buf, bytes);
 		break;
 	case TYPE_FEEDBACK:
-		log_error("%d", m->type);
+		//log_error("%d", m->type);
 
 		handleFeedbackMessage(buf, bytes, m->pid);
 		break;
 	case TYPE_FINALIZE:
-		log_error("%d", m->type);
+		//log_error("%d", m->type);
 
 		handleFinalizeMessage(buf, bytes);
 		break;
 	case TYPE_POLL:
-		log_error("%d", m->type);
+		//log_error("%d", m->type);
 
 		handlePollMessage(buf, bytes);
 		break;
@@ -630,6 +630,7 @@ void attemptDelivery() {
 		getLowestToDeliver(&pid, &pointer);
 		ws = currentSession.dataMatrix[pid - 1][pointer];
 		log_warn("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
+		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 
 		deliverToFile(pid, ws.index, ws.randomNumber);
 		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = ws.lamportCounter;
