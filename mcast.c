@@ -423,7 +423,7 @@ void handleFeedbackMessage(message *m, int bytes) {
 
 void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 	// TODO: not working!!
-//	log_debug("attempting to update last delivered counter for process %d");
+	log_debug("attempting to update last delivered counter for process %d, lastcounter received = %d, my last value from her = %d", pid, lastDeliveredCounter, currentSession.lastDeliveredCounters[pid - 1]);
 	if (currentSession.lastDeliveredCounters[pid - 1] < lastDeliveredCounter) {
 		currentSession.lastDeliveredCounters[pid - 1] = lastDeliveredCounter;
 		synchronizeWindow();
