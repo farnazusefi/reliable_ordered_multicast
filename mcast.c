@@ -64,6 +64,7 @@ typedef struct sessionT {
 	u_int32_t *finalizedProcessesLastIndices;
 	u_int32_t *lastDeliveredIndexes;
 	u_int32_t *fullyDeliveredProcess;
+	u_int32_t *lastExpectedIndexes;
 	windowSlot **deliveryBuffer;
 
 	struct timeval *timoutTimestamps;
@@ -274,6 +275,8 @@ void initializeBuffers() {
 	currentSession.windowSize = WINDOW_SIZE;
 	currentSession.deliveryBuffer = (windowSlot**) calloc(currentSession.numberOfMachines, sizeof(windowSlot*));
 	currentSession.fullyDeliveredProcess = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
+	currentSession.lastExpectedIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
+
 	currentSession.dataMatrix = (windowSlot**) malloc(currentSession.numberOfMachines * sizeof(windowSlot*));
 
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
@@ -573,19 +576,22 @@ int dataRemaining() {
 	int i, terminationCtr = 0;
 	u_int32_t pointer;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		log_trace("data remaining? process %d, fully delivered = %d", i+1, currentSession.fullyDeliveredProcess[i]);
+		log_trace("data remaining? process %d, fully delivered = %d", i + 1, currentSession.fullyDeliveredProcess[i]);
 		if (currentSession.fullyDeliveredProcess[i]) {
-			terminationCtr++;
-			continue;
+			if (currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i]) {
+				terminationCtr++;
+				continue;
+			}
 		}
 		if (currentSession.machineIndex == i + 1) {
-			log_trace("data remaining? process %d (myself), last sent idx = %d, last delivered idx = %d", i+1, currentSession.lastSentIndex, currentSession.lastDeliveredIndexes[i]);
+			log_trace("data remaining? process %d (myself), last sent idx = %d, last delivered idx = %d", i + 1, currentSession.lastSentIndex,
+					currentSession.lastDeliveredIndexes[i]);
 			if (currentSession.lastSentIndex == currentSession.lastDeliveredIndexes[i])
 				return 0;
 			continue;
 		}
 		pointer = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
-		log_trace("data remaining? process %d, valid? = %d, last delivered idx+1 ptr = %d", i+1, currentSession.dataMatrix[i][pointer].valid, pointer);
+		log_trace("data remaining? process %d, valid? = %d, last delivered idx+1 ptr = %d", i + 1, currentSession.dataMatrix[i][pointer].valid, pointer);
 		if (!currentSession.dataMatrix[i][pointer].valid)
 			return 0;
 	}
@@ -755,7 +761,8 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 		// move window start pointer
 		currentSession.windowStartPointers[pid - 1] = (currentSession.windowStartPointers[pid - 1] + 1) % currentSession.windowSize;
 		log_debug("moved window for process %d. start pointer is %d", pid, currentSession.windowStartPointers[pid - 1]);
-	} else if (index == currentSession.numberOfPackets)
-		currentSession.finalizedProcessesLastIndices[pid - 1] = 1;
-
+	} else if (index == currentSession.numberOfPackets) {
+		currentSession.fullyDeliveredProcess[pid - 1] = 1;
+		currentSession.finalizedProcessesLastIndices[pid - 1] = index;
+	}
 }
