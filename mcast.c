@@ -125,7 +125,7 @@ void attemptDelivery();
 
 void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter);
 
-void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData, u_int32_t lts);
+void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData);
 
 void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length);
 
@@ -423,7 +423,7 @@ void handleFeedbackMessage(message *m, int bytes) {
 
 void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 	// TODO: not working!!
-	log_debug("attempting to update last delivered counter for process %d, lastcounter received = %d, my last value from her = %d", pid, lastDeliveredCounter, currentSession.lastDeliveredCounters[pid - 1]);
+	log_debug("attempting to update last delivered counter for process %d, last counter received = %d, my last value from her = %d", pid, lastDeliveredCounter, currentSession.lastDeliveredCounters[pid - 1]);
 	if (currentSession.lastDeliveredCounters[pid - 1] < lastDeliveredCounter) {
 		currentSession.lastDeliveredCounters[pid - 1] = lastDeliveredCounter;
 		synchronizeWindow();
@@ -606,7 +606,8 @@ void attemptDelivery() {
 		ws = currentSession.dataMatrix[pid - 1][pointer];
 		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 
-		deliverToFile(pid, ws.index, ws.randomNumber, ws.lamportCounter);
+		deliverToFile(pid, ws.index, ws.randomNumber);
+		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = ws.lamportCounter;
 	}
 }
 
@@ -718,11 +719,10 @@ void prepareFile() {
 	}
 }
 
-void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData, u_int32_t lts) {
+void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 	log_debug("Writing to file");
 	fprintf(currentSession.f, "%2d, %8d, %8d\n", pid, index, randomData);
 	log_debug("Wrote to file");
-	currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = lts;
 	currentSession.lastDeliveredIndexes[pid - 1] = index;
 	windowSlot *wsArray = currentSession.dataMatrix[pid - 1];
 
