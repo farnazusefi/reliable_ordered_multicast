@@ -405,7 +405,8 @@ void resendMessage(u_int32_t index) {
 }
 
 void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
-	u_int32_t feedBackType = m[12];
+	u_int32_t feedBackType;
+	memcpy(&feedBackType, m+12, 4);
 	u_int32_t lastDeliveredCounter;
 	u_int32_t numOfNacks;
 	u_int32_t i;
