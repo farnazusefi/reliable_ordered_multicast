@@ -406,25 +406,25 @@ void resendMessage(u_int32_t index) {
 
 void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
 	u_int32_t feedBackType;
-	memcpy(&feedBackType, m+12, 4);
+	memcpy(&feedBackType, m + 12, 4);
 	u_int32_t lastDeliveredCounter;
 	u_int32_t numOfNacks;
 	u_int32_t i;
 	u_int32_t machineIdx;
 	switch (feedBackType) {
 	case FEEDBACK_ACK:
-		memcpy(&lastDeliveredCounter, m+16, 4);
+		memcpy(&lastDeliveredCounter, m + 16, 4);
 		log_debug("handling Ack for counter %d from process %d", lastDeliveredCounter, pid);
 		updateLastDeliveredCounter(pid, lastDeliveredCounter);
 		break;
 	case FEEDBACK_NACK:
-		memcpy(&machineIdx, m+16, 4);
+		memcpy(&machineIdx, m + 16, 4);
 		if (m[16] == currentSession.machineIndex) {
-			memcpy(&numOfNacks, m+20, 4);
+			memcpy(&numOfNacks, m + 20, 4);
 			log_debug("handling Nack for of length %d from process %d", numOfNacks, pid);
 			for (i = 0; i < numOfNacks; i++) {
 				u_int32_t index;
-				memcpy(&index, m+12 + (4 * (i + 3)), 4);
+				memcpy(&index, m + 12 + (4 * (i + 3)), 4);
 				resendMessage(index);
 			}
 		}
@@ -632,23 +632,25 @@ void updateLastReceivedIndex(u_int32_t pid) {
 	windowSlot *currentWindowSlots = currentSession.dataMatrix[pid - 1];
 	u_int32_t lastValidIndex = currentSession.lastInOrderReceivedIndexes[pid - 1];
 	u_int32_t windowStartPointer = currentSession.windowStartPointers[pid - 1];
-	u_int32_t lastValidIndexPointer = getPointerOfIndex(pid, lastValidIndex);
+	u_int32_t lastValidIndexPointer = getPointerOfIndex(pid, lastValidIndex);	// TODO: remove pid here
 	log_debug("attempting to Update last received index for %d - lastvalididxptr = %d, window startptr = %d", pid, lastValidIndexPointer, windowStartPointer);
 	if (lastValidIndex == 0) {
 		currentSession.lastInOrderReceivedIndexes[pid - 1] = 1;
 		log_debug("Updating last received index to 1");
 		return;
 	}
-	u_int32_t searchingPointer = (lastValidIndexPointer + 1) % currentSession.windowSize;
-	while (searchingPointer != windowStartPointer) {
-		if (!currentWindowSlots[searchingPointer].valid)
+	u_int32_t searchingPointer = windowStartPointer;
+	u_int32_t counter = 0;
+	while (counter != currentSession.windowSize) {
+		counter++;
+		if (currentWindowSlots[searchingPointer].valid) {
+			currentSession.lastInOrderReceivedIndexes[pid - 1] = currentWindowSlots[searchingPointer].index;
+			searchingPointer = (searchingPointer + 1) % currentSession.windowSize;
+		} else {
 			break;
-		currentSession.lastInOrderReceivedIndexes[pid - 1]++;
-		searchingPointer = (searchingPointer + 1) % currentSession.windowSize;
-		//	currentSession.readyForDelivery[pid - 1] = 1;
-		log_debug("Updating last received index to %d", currentSession.lastInOrderReceivedIndexes[pid - 1]);
-
+		}
 	}
+	log_debug("Updating last received index to %d", currentSession.lastInOrderReceivedIndexes[pid - 1]);
 
 }
 
