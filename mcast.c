@@ -130,7 +130,7 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData);
 
 void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length);
 
-u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index);
+u_int32_t getPointerOfIndex(u_int32_t index);
 
 void resendMessage(u_int32_t index);
 
@@ -392,7 +392,7 @@ void handleFinalizeMessage(void *m, int bytes) {
 void resendMessage(u_int32_t index) {
 	u_int32_t type = TYPE_DATA;
 	windowSlot *myDataArray = currentSession.dataMatrix[currentSession.machineIndex - 1];
-	windowSlot ws = myDataArray[getPointerOfIndex(currentSession.machineIndex, index)];
+	windowSlot ws = myDataArray[getPointerOfIndex(index)];
 	char data[1412];
 	log_debug("re-sending data index %d", index);
 
@@ -457,10 +457,10 @@ void handleDataMessage(void *m, int bytes) {
 			currentSession.localClock = dm->lamportCounter;
 		if (putInBuffer(dm)) {
 			if (dm->index > currentSession.lastInOrderReceivedIndexes[dm->pid - 1]) {
-				u_int32_t currentPointer = getPointerOfIndex(dm->pid, currentSession.lastInOrderReceivedIndexes[dm->pid - 1]);
+				u_int32_t currentPointer = getPointerOfIndex(currentSession.lastInOrderReceivedIndexes[dm->pid - 1]);
 				u_int32_t nackIndices[currentSession.windowSize];
 				int counter = 0;
-				while (currentPointer != getPointerOfIndex(dm->pid, dm->index)) {
+				while (currentPointer != getPointerOfIndex(dm->index)) {
 					if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid) {
 						nackIndices[counter++] = currentSession.dataMatrix[dm->pid - 1][currentPointer].index;
 					}
@@ -518,7 +518,7 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 	sendMessage(TYPE_FEEDBACK, data, 4 + sizeof(u_int32_t) * length);
 }
 
-u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
+u_int32_t getPointerOfIndex(u_int32_t index) {
 //	windowSlot *currentWindow = currentSession.dataMatrix[pid - 1];
 //	u_int32_t currentWindowStartPointer = currentSession.windowStartPointers[pid - 1];
 //	if (index == 1)
@@ -549,12 +549,12 @@ int putInBuffer(dataMessage *m) {
 // Check if the received packet's index is in the valid range for me to store
 	if (m->index > currentSession.lastInOrderReceivedIndexes[m->pid - 1] && m->index < (startIndex + currentSession.windowSize)) {
 		log_debug("putting in buffer, counter %d, index %d from process %d to position %d", m->lamportCounter, m->index, m->pid,
-				getPointerOfIndex(m->pid, m->index));
+				getPointerOfIndex(m->index));
 		ws.index = m->index;
 		ws.lamportCounter = m->lamportCounter;
 		ws.randomNumber = m->randomNumber;
 		ws.valid = 1;
-		currentWindow[getPointerOfIndex(m->pid, m->index)] = ws;
+		currentWindow[getPointerOfIndex(m->index)] = ws;
 		updateLastReceivedIndex(m->pid);
 		attemptDelivery();
 		if (currentSession.numberOfPackets == 0) {
@@ -590,7 +590,7 @@ int dataRemaining() {
 				return 0;
 			continue;
 		}
-		pointer = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
+		pointer = getPointerOfIndex(currentSession.lastDeliveredIndexes[i] + 1);
 		log_trace("data remaining? process %d, valid? = %d, last delivered idx+1 ptr = %d", i + 1, currentSession.dataMatrix[i][pointer].valid, pointer);
 		if (!currentSession.dataMatrix[i][pointer].valid)
 			return 0;
@@ -609,7 +609,7 @@ void getLowestToDeliver(u_int32_t *pid, u_int32_t *pointer) {
 		u_int32_t nextReadyForDeliveryPtr;
 		if (currentSession.fullyDeliveredProcess[i])
 			continue;
-		nextReadyForDeliveryPtr = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
+		nextReadyForDeliveryPtr = getPointerOfIndex(currentSession.lastDeliveredIndexes[i] + 1);
 		if (currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter < minimumClock) {
 			minimumClock = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter;
 			*pointer = nextReadyForDeliveryPtr;
@@ -641,7 +641,7 @@ void updateLastReceivedIndex(u_int32_t pid) {
 	windowSlot *currentWindowSlots = currentSession.dataMatrix[pid - 1];
 	u_int32_t lastValidIndex = currentSession.lastInOrderReceivedIndexes[pid - 1];
 	u_int32_t windowStartPointer = currentSession.windowStartPointers[pid - 1];
-	u_int32_t lastValidIndexPointer = getPointerOfIndex(pid, lastValidIndex);	// TODO: remove pid here
+	u_int32_t lastValidIndexPointer = getPointerOfIndex(lastValidIndex);
 	log_debug("attempting to Update last received index for %d - lastvalididxptr = %d, window startptr = %d", pid, lastValidIndexPointer, windowStartPointer);
 	if (lastValidIndex == 0) {
 		currentSession.lastInOrderReceivedIndexes[pid - 1] = 1;
@@ -733,6 +733,7 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 //		log_trace("%02X", message[j]);
 //	log_trace("\n");
 	sendto(currentSession.sendingSocket, &message, payloadSize + 12, 0, (struct sockaddr*) &currentSession.sendAddr, sizeof(currentSession.sendAddr));
+	usleep( 100000 );
 }
 
 void prepareFile() {
