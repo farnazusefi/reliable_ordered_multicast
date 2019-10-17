@@ -526,8 +526,7 @@ int putInBuffer(dataMessage *m) {
 
 	windowSlot *currentWindow = currentSession.dataMatrix[m->pid - 1];
 	windowSlot ws;
-	u_int32_t currentWindowStartPointer = currentSession.windowStartPointers[m->pid - 1];
-	u_int32_t startIndex = currentWindow[currentWindowStartPointer].index;
+	u_int32_t startIndex = currentSession.lastDeliveredIndexes[m->pid - 1] + 1;
 	log_debug("putInBuffer Condition Check, last inorder received idx = %d, startIndex = %d", currentSession.lastInOrderReceivedIndexes[m->pid - 1],
 			startIndex);
 // Check if the received packet's index is in the valid range for me to store
