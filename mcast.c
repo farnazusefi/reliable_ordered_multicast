@@ -410,18 +410,21 @@ void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
 	u_int32_t lastDeliveredCounter;
 	u_int32_t numOfNacks;
 	u_int32_t i;
+	u_int32_t machineIdx;
 	switch (feedBackType) {
 	case FEEDBACK_ACK:
-		lastDeliveredCounter = m[16];
+		memcpy(&lastDeliveredCounter, m+16, 4);
 		log_debug("handling Ack for counter %d from process %d", lastDeliveredCounter, pid);
 		updateLastDeliveredCounter(pid, lastDeliveredCounter);
 		break;
 	case FEEDBACK_NACK:
+		memcpy(&machineIdx, m+16, 4);
 		if (m[16] == currentSession.machineIndex) {
-			numOfNacks = m[20];
+			memcpy(&numOfNacks, m+20, 4);
 			log_debug("handling Nack for of length %d from process %d", numOfNacks, pid);
 			for (i = 0; i < numOfNacks; i++) {
-				u_int32_t index = m[12 + (4 * (i + 3))];
+				u_int32_t index;
+				memcpy(&index, m+12 + (4 * (i + 3)), 4);
 				resendMessage(index);
 			}
 		}
