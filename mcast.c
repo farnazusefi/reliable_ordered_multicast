@@ -63,6 +63,7 @@ typedef struct sessionT {
 	u_int32_t *lastDeliveredCounters;
 	u_int32_t *finalizedProcessesLastIndices;
 	u_int32_t *lastDeliveredIndexes;
+	u_int32_t * fullyDeliveredProcess;
 	windowSlot **deliveryBuffer;
 
 	struct timeval *timoutTimestamps;
@@ -121,8 +122,6 @@ int putInBuffer(dataMessage *m);
 void updateLastReceivedIndex(u_int32_t pid);
 
 void attemptDelivery();
-
-void checkTermination();
 
 void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter);
 
@@ -274,6 +273,7 @@ void initializeBuffers() {
 	currentSession.timoutTimestamps = (struct timeval*) malloc(currentSession.numberOfMachines * sizeof(struct timeval));
 	currentSession.windowSize = WINDOW_SIZE;
 	currentSession.deliveryBuffer = (windowSlot**) calloc(currentSession.numberOfMachines, sizeof(windowSlot*));
+	currentSession.fullyDeliveredProcess = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
 	currentSession.dataMatrix = (windowSlot**) malloc(currentSession.numberOfMachines * sizeof(windowSlot*));
 
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
@@ -539,20 +539,33 @@ int putInBuffer(dataMessage *m) {
 		if (currentSession.numberOfPackets == 0) {
 			sendAck();
 		}
-		checkTermination();
 		return 1;
 	}
 	log_debug("not putting in buffer (retransmitted data), counter %d, index %d from process %d", m->lamportCounter, m->index, m->pid);
 	return 0;
 }
 
+void doTerminate()
+{
+	log_info("termination conditions hold. Exiting, BYE!");
+	fclose(currentSession.f);
+	exit(0);
+}
+
 int dataRemaining() {
-	int i;
+	int i, terminationCtr = 0;
+	u_int32_t pointer;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		u_int32_t pointer = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
+		if(currentSession.fullyDeliveredProcess[i]){
+			 terminationCtr++;
+			 continue;
+		}
+		pointer = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
 		if (!currentSession.dataMatrix[i][pointer].valid)
 			return 0;
 	}
+	if(terminationCtr == currentSession.numberOfMachines)
+		doTerminate();
 
 	return 1;
 }
@@ -573,21 +586,6 @@ void getLowestToDeliver(u_int32_t *pid, u_int32_t *pointer) {
 	}
 	log_debug("lowest to deliver is: pointer %d pid %d", *pointer, *pid);
 
-}
-
-void checkTermination() {
-	log_debug("checking termination conditions");
-	if (getMinOfArray(currentSession.finalizedProcessesLastIndices) != 0) {
-		attemptDelivery(0);
-		int i;
-		for (i = 0; i < currentSession.numberOfMachines; i++) {
-			if (currentSession.finalizedProcessesLastIndices[i] != currentSession.lastDeliveredIndexes[i])
-				return;
-		}
-		log_info("termination conditions hold. Exiting, BYE!");
-		fclose(currentSession.f);
-		exit(0);
-	}
 }
 
 void attemptDelivery() {
