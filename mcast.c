@@ -63,7 +63,7 @@ typedef struct sessionT {
 	u_int32_t *lastDeliveredCounters;
 	u_int32_t *finalizedProcessesLastIndices;
 	u_int32_t *lastDeliveredIndexes;
-	u_int32_t * fullyDeliveredProcess;
+	u_int32_t *fullyDeliveredProcess;
 	windowSlot **deliveryBuffer;
 
 	struct timeval *timoutTimestamps;
@@ -499,11 +499,11 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 }
 
 u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
-	windowSlot *currentWindowSlot = currentSession.dataMatrix[pid - 1];
+	windowSlot *currentWindow = currentSession.dataMatrix[pid - 1];
 	u_int32_t currentWindowStartPointer = currentSession.windowStartPointers[pid - 1];
-	if (!currentWindowSlot[currentWindowStartPointer].index)
+	if (!currentWindow[0].index)	// TODO: WTH is this for ?!!!! FIIIIIX
 		return 0;
-	u_int32_t pointer = (currentWindowStartPointer + (index - currentWindowSlot[currentWindowStartPointer].index)) % currentSession.windowSize;
+	u_int32_t pointer = (currentWindowStartPointer + (index - currentWindow[currentWindowStartPointer].index)) % currentSession.windowSize;
 	log_debug("pointer to index %d of process %d is %d", index, pid, pointer);
 	return pointer;
 }
