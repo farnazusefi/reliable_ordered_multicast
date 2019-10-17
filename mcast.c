@@ -582,6 +582,7 @@ int dataRemaining() {
 			log_trace("data remaining? process %d (myself), last sent idx = %d, last delivered idx = %d", i+1, currentSession.lastSentIndex, currentSession.lastDeliveredIndexes[i]);
 			if (currentSession.lastSentIndex == currentSession.lastDeliveredIndexes[i])
 				return 0;
+			continue;
 		}
 		pointer = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
 		log_trace("data remaining? process %d, valid? = %d, last delivered idx+1 ptr = %d", i+1, currentSession.dataMatrix[i][pointer].valid, pointer);
