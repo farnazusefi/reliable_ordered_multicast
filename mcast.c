@@ -503,7 +503,7 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
 	windowSlot *currentWindow = currentSession.dataMatrix[pid - 1];
 	u_int32_t currentWindowStartPointer = currentSession.windowStartPointers[pid - 1];
-	if (!currentWindow[0].index)
+	if (index == 1)
 		return 0;
 	u_int32_t pointer = (currentWindowStartPointer + (index - currentWindow[currentWindowStartPointer].index)) % currentSession.windowSize;
 	log_debug("pointer to index %d of process %d is %d", index, pid, pointer);
@@ -735,6 +735,7 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 		wsArray[currentSession.windowStartPointers[pid - 1]].valid = 0;
 		// move window start pointer
 		currentSession.windowStartPointers[pid - 1] = (currentSession.windowStartPointers[pid - 1] + 1) % currentSession.windowSize;
+		log_debug("moved window for process %d. start pointer is %d", pid, currentSession.windowStartPointers[pid - 1]);
 	}
 	else
 		if (index == currentSession.numberOfPackets)
