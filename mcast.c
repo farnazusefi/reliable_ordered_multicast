@@ -565,7 +565,6 @@ int dataRemaining() {
 		{
 			if(currentSession.lastSentIndex == currentSession.lastDeliveredIndexes[i])
 				return 0;
-
 		}
 		pointer = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
 		if (!currentSession.dataMatrix[i][pointer].valid)
@@ -585,6 +584,7 @@ void getLowestToDeliver(u_int32_t *pid, u_int32_t *pointer) {
 		u_int32_t nextReadyForDeliveryPtr;
 		nextReadyForDeliveryPtr = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
 		if (currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter < minimumClock) {
+			minimumClock = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter;
 			*pointer = nextReadyForDeliveryPtr;
 			*pid = i + 1;
 			log_debug("changing minimum: pointer %d pid %d", nextReadyForDeliveryPtr, i + 1);
