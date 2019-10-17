@@ -324,18 +324,27 @@ void parse(void *buf, int bytes) {
 	log_debug("parsing ...");
 	switch (m->type) {
 	case TYPE_START:
+		log_error("%d", m->type);
 		handleStartMessage(m, bytes);
 		break;
 	case TYPE_DATA:
+		log_error("%d", m->type);
+
 		handleDataMessage(buf, bytes);
 		break;
 	case TYPE_FEEDBACK:
+		log_error("%d", m->type);
+
 		handleFeedbackMessage(m, bytes);
 		break;
 	case TYPE_FINALIZE:
+		log_error("%d", m->type);
+
 		handleFinalizeMessage(buf, bytes);
 		break;
 	case TYPE_POLL:
+		log_error("%d", m->type);
+
 		handlePollMessage(buf, bytes);
 		break;
 	default:
