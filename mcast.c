@@ -607,14 +607,14 @@ void attemptDelivery() {
 		deliverToFile(pid, ws.index, ws.randomNumber, ws.lamportCounter);
 	}
 }
-
+// TODO: sth wrong here!
 void updateLastReceivedIndex(u_int32_t pid) {
 
 	windowSlot *currentWindowSlots = currentSession.dataMatrix[pid - 1];
 	u_int32_t lastValidIndex = currentSession.lastInOrderReceivedIndexes[pid - 1];
 	u_int32_t windowStartPointer = currentSession.windowStartPointers[pid - 1];
 	u_int32_t lastValidIndexPointer = getPointerOfIndex(pid, lastValidIndex);
-
+	log_debug("attempting to Update last received index for %d - lastvalididxptr = %d, window startptr = %d", pid,  lastValidIndexPointer, windowStartPointer);
 	if (lastValidIndex == 0) {
 		currentSession.lastInOrderReceivedIndexes[pid - 1] = 1;
 		log_debug("Updating last received index to 1");
