@@ -556,9 +556,16 @@ int dataRemaining() {
 	int i, terminationCtr = 0;
 	u_int32_t pointer;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
+
 		if(currentSession.fullyDeliveredProcess[i]){
 			 terminationCtr++;
 			 continue;
+		}
+		if(currentSession.machineIndex == i+1)
+		{
+			if(currentSession.lastSentIndex == currentSession.lastDeliveredIndexes[i])
+				return 0;
+
 		}
 		pointer = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
 		if (!currentSession.dataMatrix[i][pointer].valid)
