@@ -423,7 +423,8 @@ void handleFeedbackMessage(message *m, int bytes) {
 
 void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 	// TODO: not working!!
-	log_debug("attempting to update last delivered counter for process %d, last counter received = %d, my last value from her = %d", pid, lastDeliveredCounter, currentSession.lastDeliveredCounters[pid - 1]);
+	log_debug("attempting to update last delivered counter for process %d, last counter received = %d, my last value from her = %d", pid, lastDeliveredCounter,
+			currentSession.lastDeliveredCounters[pid - 1]);
 	if (currentSession.lastDeliveredCounters[pid - 1] < lastDeliveredCounter) {
 		currentSession.lastDeliveredCounters[pid - 1] = lastDeliveredCounter;
 		synchronizeWindow();
@@ -501,13 +502,15 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 }
 
 u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
-	windowSlot *currentWindow = currentSession.dataMatrix[pid - 1];
-	u_int32_t currentWindowStartPointer = currentSession.windowStartPointers[pid - 1];
-	if (index == 1)
-		return 0;
-	u_int32_t pointer = (currentWindowStartPointer + (index - currentWindow[currentWindowStartPointer].index)) % currentSession.windowSize;
-	log_debug("pointer to index %d of process %d is %d", index, pid, pointer);
-	return pointer;
+//	windowSlot *currentWindow = currentSession.dataMatrix[pid - 1];
+//	u_int32_t currentWindowStartPointer = currentSession.windowStartPointers[pid - 1];
+//	if (index == 1)
+//		return 0;
+//	u_int32_t pointer = (currentWindowStartPointer + (index - currentWindow[currentWindowStartPointer].index)) % currentSession.windowSize;
+//	log_debug("pointer to index %d of process %d is %d", index, pid, pointer);
+//	return pointer;
+
+	return index % (currentSession.windowSize + 1);
 }
 
 void sendAck() {
@@ -527,7 +530,7 @@ int putInBuffer(dataMessage *m) {
 	u_int32_t startIndex = currentWindow[currentWindowStartPointer].index;
 	log_debug("putInBuffer Condition Check, last inorder received idx = %d, startIndex = %d", currentSession.lastInOrderReceivedIndexes[m->pid - 1],
 			startIndex);
-	// Check if the received packet's index is in the valid range for me to store
+// Check if the received packet's index is in the valid range for me to store
 	if (m->index > currentSession.lastInOrderReceivedIndexes[m->pid - 1] && m->index < (startIndex + currentSession.windowSize)) {
 		log_debug("putting in buffer, counter %d, index %d from process %d to position %d", m->lamportCounter, m->index, m->pid,
 				getPointerOfIndex(m->pid, m->index));
@@ -547,8 +550,7 @@ int putInBuffer(dataMessage *m) {
 	return 0;
 }
 
-void doTerminate()
-{
+void doTerminate() {
 	log_info("termination conditions hold. Exiting, BYE!");
 	fclose(currentSession.f);
 	exit(0);
@@ -559,20 +561,19 @@ int dataRemaining() {
 	u_int32_t pointer;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 
-		if(currentSession.fullyDeliveredProcess[i]){
-			 terminationCtr++;
-			 continue;
+		if (currentSession.fullyDeliveredProcess[i]) {
+			terminationCtr++;
+			continue;
 		}
-		if(currentSession.machineIndex == i+1)
-		{
-			if(currentSession.lastSentIndex == currentSession.lastDeliveredIndexes[i])
+		if (currentSession.machineIndex == i + 1) {
+			if (currentSession.lastSentIndex == currentSession.lastDeliveredIndexes[i])
 				return 0;
 		}
 		pointer = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
 		if (!currentSession.dataMatrix[i][pointer].valid)
 			return 0;
 	}
-	if(terminationCtr == currentSession.numberOfMachines)
+	if (terminationCtr == currentSession.numberOfMachines)
 		doTerminate();
 
 	return 1;
@@ -584,8 +585,8 @@ void getLowestToDeliver(u_int32_t *pid, u_int32_t *pointer) {
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		// 			go forward in window till you reach an undelivered slot
 		u_int32_t nextReadyForDeliveryPtr;
-		if(currentSession.fullyDeliveredProcess[i])
-			 continue;
+		if (currentSession.fullyDeliveredProcess[i])
+			continue;
 		nextReadyForDeliveryPtr = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
 		if (currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter < minimumClock) {
 			minimumClock = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter;
@@ -619,7 +620,7 @@ void updateLastReceivedIndex(u_int32_t pid) {
 	u_int32_t lastValidIndex = currentSession.lastInOrderReceivedIndexes[pid - 1];
 	u_int32_t windowStartPointer = currentSession.windowStartPointers[pid - 1];
 	u_int32_t lastValidIndexPointer = getPointerOfIndex(pid, lastValidIndex);
-	log_debug("attempting to Update last received index for %d - lastvalididxptr = %d, window startptr = %d", pid,  lastValidIndexPointer, windowStartPointer);
+	log_debug("attempting to Update last received index for %d - lastvalididxptr = %d, window startptr = %d", pid, lastValidIndexPointer, windowStartPointer);
 	if (lastValidIndex == 0) {
 		currentSession.lastInOrderReceivedIndexes[pid - 1] = 1;
 		log_debug("Updating last received index to 1");
@@ -728,7 +729,7 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 	currentSession.lastDeliveredIndexes[pid - 1] = index;
 	windowSlot *wsArray = currentSession.dataMatrix[pid - 1];
 
-	// if not delivering my own data, move window
+// if not delivering my own data, move window
 	if (pid != currentSession.machineIndex) {
 		log_debug("Moving process %d receive window", pid);
 		// invalidate the data in the window start
@@ -736,9 +737,7 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 		// move window start pointer
 		currentSession.windowStartPointers[pid - 1] = (currentSession.windowStartPointers[pid - 1] + 1) % currentSession.windowSize;
 		log_debug("moved window for process %d. start pointer is %d", pid, currentSession.windowStartPointers[pid - 1]);
-	}
-	else
-		if (index == currentSession.numberOfPackets)
-			currentSession.finalizedProcessesLastIndices[pid - 1] = 1;
+	} else if (index == currentSession.numberOfPackets)
+		currentSession.finalizedProcessesLastIndices[pid - 1] = 1;
 
 }
