@@ -99,7 +99,7 @@ void handleStartMessage(message *m, int bytes);
 
 void handleDataMessage(void *m, int bytes);
 
-void handleFeedbackMessage(message *m, int bytes);
+void handleFeedbackMessage(char *m, int bytes, u_int32_t pid);
 
 void handleFinalizeMessage(void *m, int bytes);
 
@@ -335,7 +335,7 @@ void parse(void *buf, int bytes) {
 	case TYPE_FEEDBACK:
 		log_error("%d", m->type);
 
-		handleFeedbackMessage(m, bytes);
+		handleFeedbackMessage(buf, bytes, m->pid);
 		break;
 	case TYPE_FINALIZE:
 		log_error("%d", m->type);
@@ -404,23 +404,23 @@ void resendMessage(u_int32_t index) {
 	sendMessage(type, data, 1412);
 }
 
-void handleFeedbackMessage(message *m, int bytes) {
-	u_int32_t feedBackType = m->data[0];
+void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
+	u_int32_t feedBackType = m[12];
 	u_int32_t lastDeliveredCounter;
 	u_int32_t numOfNacks;
 	u_int32_t i;
 	switch (feedBackType) {
 	case FEEDBACK_ACK:
-		lastDeliveredCounter = m->data[4];
-		log_debug("handling Ack for counter %d from process %d", lastDeliveredCounter, m->pid);
-		updateLastDeliveredCounter(m->pid, lastDeliveredCounter);
+		lastDeliveredCounter = m[16];
+		log_debug("handling Ack for counter %d from process %d", lastDeliveredCounter, pid);
+		updateLastDeliveredCounter(pid, lastDeliveredCounter);
 		break;
 	case FEEDBACK_NACK:
-		if (m->data[4] == currentSession.machineIndex) {
-			numOfNacks = m->data[8];
-			log_debug("handling Nack for of length %d from process %d", numOfNacks, m->pid);
+		if (m[16] == currentSession.machineIndex) {
+			numOfNacks = m[20];
+			log_debug("handling Nack for of length %d from process %d", numOfNacks, pid);
 			for (i = 0; i < numOfNacks; i++) {
-				u_int32_t index = m->data[4 * (i + 3)];
+				u_int32_t index = m[12 + (4 * (i + 3))];
 				resendMessage(index);
 			}
 		}
@@ -506,6 +506,7 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 	for (i = 1; i <= length; i++) {
 		data[(4 * i) + 8] = indexes[i - 1];
 	}
+	log_debug("sending NACK for %d messages", length);
 
 	sendMessage(TYPE_FEEDBACK, data, 4 + sizeof(u_int32_t) * length);
 }
