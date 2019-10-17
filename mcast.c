@@ -573,16 +573,18 @@ int dataRemaining() {
 	int i, terminationCtr = 0;
 	u_int32_t pointer;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-
+		log_trace("data remaining? process %d, fully delivered = %d", i+1, currentSession.fullyDeliveredProcess[i]);
 		if (currentSession.fullyDeliveredProcess[i]) {
 			terminationCtr++;
 			continue;
 		}
 		if (currentSession.machineIndex == i + 1) {
+			log_trace("data remaining? process %d (myself), last sent idx = %d, last delivered idx = %d", i+1, currentSession.lastSentIndex, currentSession.lastDeliveredIndexes[i]);
 			if (currentSession.lastSentIndex == currentSession.lastDeliveredIndexes[i])
 				return 0;
 		}
 		pointer = getPointerOfIndex(i + 1, currentSession.lastDeliveredIndexes[i] + 1);
+		log_trace("data remaining? process %d, valid? = %d, last delivered idx+1 ptr = %d", i+1, currentSession.dataMatrix[i][pointer].valid, pointer);
 		if (!currentSession.dataMatrix[i][pointer].valid)
 			return 0;
 	}
