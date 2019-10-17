@@ -422,7 +422,9 @@ void handleFeedbackMessage(message *m, int bytes) {
 }
 
 void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
-	if (currentSession.lastDeliveredCounters[pid - 1] > lastDeliveredCounter) {
+	// TODO: not working!!
+//	log_debug("attempting to update last delivered counter for process %d");
+	if (currentSession.lastDeliveredCounters[pid - 1] < lastDeliveredCounter) {
 		currentSession.lastDeliveredCounters[pid - 1] = lastDeliveredCounter;
 		synchronizeWindow();
 	}
@@ -501,7 +503,7 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 u_int32_t getPointerOfIndex(u_int32_t pid, u_int32_t index) {
 	windowSlot *currentWindow = currentSession.dataMatrix[pid - 1];
 	u_int32_t currentWindowStartPointer = currentSession.windowStartPointers[pid - 1];
-	if (!currentWindow[0].index)	// TODO: WTH is this for ?!!!! FIIIIIX
+	if (!currentWindow[0].index)
 		return 0;
 	u_int32_t pointer = (currentWindowStartPointer + (index - currentWindow[currentWindowStartPointer].index)) % currentSession.windowSize;
 	log_debug("pointer to index %d of process %d is %d", index, pid, pointer);
@@ -607,7 +609,7 @@ void attemptDelivery() {
 		deliverToFile(pid, ws.index, ws.randomNumber, ws.lamportCounter);
 	}
 }
-// TODO: sth wrong here!
+
 void updateLastReceivedIndex(u_int32_t pid) {
 
 	windowSlot *currentWindowSlots = currentSession.dataMatrix[pid - 1];
