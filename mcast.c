@@ -707,6 +707,7 @@ void initializeAndSendRandomNumber(int moveStartpointer, u_int32_t destinationPt
 	ws.index = currentSession.lastSentIndex;
 	ws.lamportCounter = currentSession.localClock;
 	ws.randomNumber = randomNumber;
+	ws.valid = 1;
 	if (!moveStartpointer) {
 		currentSession.dataMatrix[currentSession.machineIndex - 1][destinationPtr] = ws;
 	} else {
