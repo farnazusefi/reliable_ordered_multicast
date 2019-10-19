@@ -378,6 +378,7 @@ void handleFinalizeMessage(void *m, int bytes) {
 
 	dataMessage *dm = (dataMessage*) m;
 	log_error("received finalize message from %d, with index %d", dm->pid, dm->index);
+	currentSession.fullyDeliveredProcess[dm->pid - 1] = 1;
 	if (dm->index == 0) {
 		currentSession.lastExpectedIndexes[dm->pid - 1] = 1;
 		currentSession.lastDeliveredCounters[dm->pid - 1] = 1;
