@@ -480,6 +480,8 @@ void handleDataMessage(void *m, int bytes) {
 		updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
 
 		break;
+	case STATE_FINALIZING:
+		updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
 	default:
 		log_warn("discarding unexpected data");
 		break;
