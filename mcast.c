@@ -93,6 +93,8 @@ typedef struct fileToReceiveT {
 
 void prepareFile();
 
+u_int32_t getMinOfArray(u_int32_t *lastDeliveredCounters);
+
 void parse(void *buf, int bytes);
 
 void handleStartMessage(message *m, int bytes);
@@ -112,6 +114,8 @@ void startSending();
 void synchronizeWindow();
 
 void initializeBuffers();
+
+void doTerminate();
 
 void initializeAndSendRandomNumber(int moveStartPointer, u_int32_t destinationPtr);
 
@@ -371,7 +375,7 @@ void handlePollMessage(void *m, int bytes) {
 		char data[1412];
 		u_int32_t zero = 0;
 		memcpy(data, &zero, 4);
-		sendMessage(STATE_FINALIZING, data, 1412);
+		sendMessage(TYPE_FINALIZE, data, 1412);
 	}
 }
 
@@ -445,6 +449,9 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 		currentSession.lastDeliveredCounters[pid - 1] = lastDeliveredCounter;
 		synchronizeWindow();
 	}
+	if (currentSession.state == STATE_FINALIZING
+			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]+1))
+		doTerminate();
 }
 
 void handleDataMessage(void *m, int bytes) {
@@ -494,7 +501,8 @@ void synchronizeWindow() {
 
 	while (1) {
 		u_int32_t windowStartPointer = currentSession.windowStartPointers[currentSession.machineIndex - 1];
-		log_trace("Synchronizing my window, window start ptr ctr is %d", currentSession.dataMatrix[currentSession.machineIndex - 1][windowStartPointer].lamportCounter);
+		log_trace("Synchronizing my window, window start ptr ctr is %d",
+				currentSession.dataMatrix[currentSession.machineIndex - 1][windowStartPointer].lamportCounter);
 		if (currentSession.dataMatrix[currentSession.machineIndex - 1][windowStartPointer].lamportCounter <= minimumOfWindow
 				&& currentSession.state == STATE_SENDING) {
 			initializeAndSendRandomNumber(1, 0);
@@ -549,8 +557,7 @@ int putInBuffer(dataMessage *m) {
 			startIndex);
 // Check if the received packet's index is in the valid range for me to store
 	if (m->index > currentSession.lastInOrderReceivedIndexes[m->pid - 1] && m->index < (startIndex + currentSession.windowSize)) {
-		log_debug("putting in buffer, counter %d, index %d from process %d to position %d", m->lamportCounter, m->index, m->pid,
-				getPointerOfIndex(m->index));
+		log_debug("putting in buffer, counter %d, index %d from process %d to position %d", m->lamportCounter, m->index, m->pid, getPointerOfIndex(m->index));
 		ws.index = m->index;
 		ws.lamportCounter = m->lamportCounter;
 		ws.randomNumber = m->randomNumber;
@@ -597,8 +604,7 @@ int dataRemaining() {
 			return 0;
 	}
 	if (terminationCtr == currentSession.numberOfMachines)
-		doTerminate();
-
+		currentSession.state = STATE_FINALIZING;
 	return 1;
 }
 
@@ -611,7 +617,8 @@ void getLowestToDeliver(u_int32_t *pid, u_int32_t *pointer) {
 		if (currentSession.fullyDeliveredProcess[i] && currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i])
 			continue;
 		nextReadyForDeliveryPtr = getPointerOfIndex(currentSession.lastDeliveredIndexes[i] + 1);
-		log_debug("our window in pointer %d contains index %d valid %d", nextReadyForDeliveryPtr, currentSession.dataMatrix[i][nextReadyForDeliveryPtr].index, currentSession.dataMatrix[i][nextReadyForDeliveryPtr].valid);
+		log_debug("our window in pointer %d contains index %d valid %d", nextReadyForDeliveryPtr, currentSession.dataMatrix[i][nextReadyForDeliveryPtr].index,
+				currentSession.dataMatrix[i][nextReadyForDeliveryPtr].valid);
 		if (currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter < minimumClock) {
 			minimumClock = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter;
 			*pointer = nextReadyForDeliveryPtr;
@@ -635,7 +642,7 @@ void attemptDelivery() {
 //		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 
 		deliverToFile(pid, ws.index, ws.randomNumber);
-		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = ws.lamportCounter-1;
+		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = ws.lamportCounter - 1;
 	}
 }
 
@@ -730,13 +737,11 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 	char message[payloadSize + 12];
 	memcpy(message, &type, 4);
 	memcpy(message + 4, &currentSession.machineIndex, 4);
-	memcpy(message + 8, &currentSession.lastDeliveredCounters[currentSession.machineIndex - 1], 4);
+	u_int32_t lastCounter = currentSession.lastDeliveredCounters[currentSession.machineIndex - 1];
+	if (currentSession.state == STATE_FINALIZING)
+		lastCounter++;
+	memcpy(message + 8, &lastCounter, 4);
 	memcpy(message + 12, dp, payloadSize);
-	log_trace("sending:");
-//	int j;
-//	for (j = 0; j < 12; j++)
-//		log_trace("%02X", message[j]);
-//	log_trace("\n");
 	sendto(currentSession.sendingSocket, &message, payloadSize + 12, 0, (struct sockaddr*) &currentSession.sendAddr, sizeof(currentSession.sendAddr));
 //	usleep( 100000 );
 }
