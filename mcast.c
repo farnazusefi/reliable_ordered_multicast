@@ -603,8 +603,10 @@ int dataRemaining() {
 		if (!currentSession.dataMatrix[i][pointer].valid)
 			return 0;
 	}
-	if (terminationCtr == currentSession.numberOfMachines)
+	if (terminationCtr == currentSession.numberOfMachines){
 		currentSession.state = STATE_FINALIZING;
+		return 0;
+	}
 	return 1;
 }
 
