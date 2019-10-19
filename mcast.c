@@ -632,7 +632,7 @@ void attemptDelivery() {
 //		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 
 		deliverToFile(pid, ws.index, ws.randomNumber);
-		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = ws.lamportCounter;
+		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = ws.lamportCounter-1;
 	}
 }
 
