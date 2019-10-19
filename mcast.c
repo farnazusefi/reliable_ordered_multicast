@@ -735,7 +735,7 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 //		log_trace("%02X", message[j]);
 //	log_trace("\n");
 	sendto(currentSession.sendingSocket, &message, payloadSize + 12, 0, (struct sockaddr*) &currentSession.sendAddr, sizeof(currentSession.sendAddr));
-	usleep( 100000 );
+//	usleep( 100000 );
 }
 
 void prepareFile() {
