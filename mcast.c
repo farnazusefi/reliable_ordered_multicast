@@ -313,6 +313,7 @@ void checkTimeoutForOthers() {
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		if ((t.tv_sec - currentSession.timoutTimestamps[i].tv_sec) * 1000000 + (t.tv_usec - currentSession.timoutTimestamps[i].tv_usec) > TIMEOUT
 				&& i != currentSession.machineIndex - 1) {
+			currentSession.timoutTimestamps[i] = t;
 			handleTimeOut(i + 1);
 		}
 	}
