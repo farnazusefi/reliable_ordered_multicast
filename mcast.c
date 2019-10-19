@@ -499,7 +499,7 @@ void synchronizeWindow() {
 	u_int32_t minimumOfWindow = getMinOfArray(currentSession.lastDeliveredCounters);
 	log_debug("Synchronizing my window, minimum delivered counter is %d", minimumOfWindow);
 
-	while (1) {
+	while (currentSession.lastSentIndex < currentSession.numberOfPackets) {
 		u_int32_t windowStartPointer = currentSession.windowStartPointers[currentSession.machineIndex - 1];
 		log_trace("Synchronizing my window, window start ptr ctr is %d",
 				currentSession.dataMatrix[currentSession.machineIndex - 1][windowStartPointer].lamportCounter);
