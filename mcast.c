@@ -511,7 +511,7 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 	memcpy(data + 8, &length, 4);
 	int i;
 	for (i = 1; i <= length; i++) {
-		data[(4 * i) + 8] = indexes[i - 1];
+		memcpy(data + ((4 * i) + 8), &indexes[i - 1], 4);
 		log_debug("sending NACK for %d messages, index=%d", length, indexes[i - 1]);
 	}
 
