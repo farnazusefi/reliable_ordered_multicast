@@ -421,7 +421,7 @@ void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
 		break;
 	case FEEDBACK_NACK:
 		memcpy(&machineIdx, m + 16, 4);
-		if (m[16] == currentSession.machineIndex) {
+		if (machineIdx == currentSession.machineIndex) {
 			memcpy(&numOfNacks, m + 20, 4);
 			log_debug("handling Nack for of length %d from process %d", numOfNacks, pid);
 			for (i = 0; i < numOfNacks; i++) {
