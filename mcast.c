@@ -61,7 +61,6 @@ typedef struct sessionT {
 	u_int32_t *highestReceivedIndexes;
 	u_int32_t *windowStartPointers;
 	u_int32_t *lastDeliveredCounters;
-	u_int32_t *finalizedProcessesLastIndices;
 	u_int32_t *lastDeliveredIndexes;
 	u_int32_t *fullyDeliveredProcess;
 	u_int32_t *lastExpectedIndexes;
@@ -269,7 +268,6 @@ void initializeBuffers() {
 	currentSession.lastInOrderReceivedIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
 	currentSession.windowStartPointers = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
 	currentSession.highestReceivedIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
-	currentSession.finalizedProcessesLastIndices = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
 	currentSession.lastDeliveredIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
 	currentSession.timoutTimestamps = (struct timeval*) malloc(currentSession.numberOfMachines * sizeof(struct timeval));
 	currentSession.windowSize = WINDOW_SIZE;
@@ -381,11 +379,11 @@ void handleFinalizeMessage(void *m, int bytes) {
 	dataMessage *dm = (dataMessage*) m;
 	log_error("received finalize message from %d, with index %d", dm->pid, dm->index);
 	if (dm->index == 0) {
-		currentSession.finalizedProcessesLastIndices[dm->pid - 1] = 1;
+		currentSession.lastExpectedIndexes[dm->pid - 1] = 1;
 		currentSession.lastDeliveredCounters[dm->pid - 1] = 1;
 		return;
 	}
-	currentSession.finalizedProcessesLastIndices[dm->pid - 1] = dm->index;
+	currentSession.lastExpectedIndexes[dm->pid - 1] = dm->index;
 	handleDataMessage(m, bytes);
 }
 
@@ -630,7 +628,7 @@ void attemptDelivery() {
 		getLowestToDeliver(&pid, &pointer);
 		ws = currentSession.dataMatrix[pid - 1][pointer];
 		log_warn("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
-		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
+//		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 
 		deliverToFile(pid, ws.index, ws.randomNumber);
 		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = ws.lamportCounter;
@@ -765,6 +763,6 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 		log_debug("moved window for process %d. start pointer is %d", pid, currentSession.windowStartPointers[pid - 1]);
 	} else if (index == currentSession.numberOfPackets) {
 		currentSession.fullyDeliveredProcess[pid - 1] = 1;
-		currentSession.finalizedProcessesLastIndices[pid - 1] = index;
+		currentSession.lastExpectedIndexes[pid - 1] = index;
 	}
 }
