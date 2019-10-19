@@ -713,8 +713,9 @@ void initializeAndSendRandomNumber(int moveStartpointer, u_int32_t destinationPt
 	if (!moveStartpointer) {
 		currentSession.dataMatrix[currentSession.machineIndex - 1][destinationPtr] = ws;
 	} else {
-		currentSession.dataMatrix[currentSession.machineIndex - 1][currentSession.windowStartPointers[currentSession.machineIndex - 1]] = ws;
-		currentSession.windowStartPointers[currentSession.machineIndex - 1]++;
+		u_int32_t ourMachinePointer = currentSession.machineIndex - 1;
+		currentSession.dataMatrix[ourMachinePointer][currentSession.windowStartPointers[ourMachinePointer]] = ws;
+		currentSession.windowStartPointers[ourMachinePointer] = (currentSession.windowStartPointers[ourMachinePointer] + 1) % currentSession.windowSize;
 	}
 	memcpy(data + 12, garbage_data, 1400);
 	if (ws.index == currentSession.numberOfPackets)
