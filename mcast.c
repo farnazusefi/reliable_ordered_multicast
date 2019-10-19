@@ -605,7 +605,7 @@ void getLowestToDeliver(u_int32_t *pid, u_int32_t *pointer) {
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		// 			go forward in window till you reach an undelivered slot
 		u_int32_t nextReadyForDeliveryPtr;
-		if (currentSession.fullyDeliveredProcess[i])
+		if (currentSession.fullyDeliveredProcess[i] && currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i])
 			continue;
 		nextReadyForDeliveryPtr = getPointerOfIndex(currentSession.lastDeliveredIndexes[i] + 1);
 		if (currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter < minimumClock) {
