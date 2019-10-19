@@ -504,7 +504,7 @@ void synchronizeWindow() {
 }
 
 void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
-	char data[4 + sizeof(u_int32_t) * length];
+	char data[12 + sizeof(u_int32_t) * length];
 	u_int32_t feedbackType = FEEDBACK_NACK;
 	memcpy(data, &feedbackType, 4);
 	memcpy(data + 4, &pid, 4);
@@ -515,7 +515,7 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 	}
 	log_debug("sending NACK for %d messages", length);
 
-	sendMessage(TYPE_FEEDBACK, data, 4 + sizeof(u_int32_t) * length);
+	sendMessage(TYPE_FEEDBACK, data, 12 + sizeof(u_int32_t) * length);
 }
 
 u_int32_t getPointerOfIndex(u_int32_t index) {
