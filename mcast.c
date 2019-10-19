@@ -377,7 +377,7 @@ void handlePollMessage(void *m, int bytes) {
 void handleFinalizeMessage(void *m, int bytes) {
 
 	dataMessage *dm = (dataMessage*) m;
-	log_error("received finalize message from %d, with index %d", dm->pid, dm->index);
+	log_debug("received finalize message from %d, with index %d", dm->pid, dm->index);
 	currentSession.fullyDeliveredProcess[dm->pid - 1] = 1;
 	if (dm->index == 0) {
 		currentSession.lastExpectedIndexes[dm->pid - 1] = 1;
@@ -609,7 +609,7 @@ void getLowestToDeliver(u_int32_t *pid, u_int32_t *pointer) {
 		if (currentSession.fullyDeliveredProcess[i] && currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i])
 			continue;
 		nextReadyForDeliveryPtr = getPointerOfIndex(currentSession.lastDeliveredIndexes[i] + 1);
-		log_error("our window in pointer %d contains index %d valid %d", nextReadyForDeliveryPtr, currentSession.dataMatrix[i][nextReadyForDeliveryPtr].index, currentSession.dataMatrix[i][nextReadyForDeliveryPtr].valid);
+		log_debug("our window in pointer %d contains index %d valid %d", nextReadyForDeliveryPtr, currentSession.dataMatrix[i][nextReadyForDeliveryPtr].index, currentSession.dataMatrix[i][nextReadyForDeliveryPtr].valid);
 		if (currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter < minimumClock) {
 			minimumClock = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter;
 			*pointer = nextReadyForDeliveryPtr;
@@ -629,7 +629,7 @@ void attemptDelivery() {
 	while (dataRemaining()) {
 		getLowestToDeliver(&pid, &pointer);
 		ws = currentSession.dataMatrix[pid - 1][pointer];
-		log_warn("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
+		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 //		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 
 		deliverToFile(pid, ws.index, ws.randomNumber);
