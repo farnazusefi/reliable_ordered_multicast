@@ -423,7 +423,7 @@ void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
 		memcpy(&machineIdx, m + 16, 4);
 		if (machineIdx == currentSession.machineIndex) {
 			memcpy(&numOfNacks, m + 20, 4);
-			log_debug("handling Nack for of length %d from process %d", numOfNacks, pid);
+			log_debug("handling Nack for of length %d from process %d, totaling %d bytes", numOfNacks, pid, bytes);
 			for (i = 0; i < numOfNacks; i++) {
 				u_int32_t index;
 				memcpy(&index, m + 12 + (4 * (i + 3)), 4);
