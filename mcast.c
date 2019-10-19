@@ -608,6 +608,7 @@ void getLowestToDeliver(u_int32_t *pid, u_int32_t *pointer) {
 		if (currentSession.fullyDeliveredProcess[i] && currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i])
 			continue;
 		nextReadyForDeliveryPtr = getPointerOfIndex(currentSession.lastDeliveredIndexes[i] + 1);
+		log_error("our window in pointer %d contains index %d valid %d", nextReadyForDeliveryPtr, currentSession.dataMatrix[i][nextReadyForDeliveryPtr].index, currentSession.dataMatrix[i][nextReadyForDeliveryPtr].valid);
 		if (currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter < minimumClock) {
 			minimumClock = currentSession.dataMatrix[i][nextReadyForDeliveryPtr].lamportCounter;
 			*pointer = nextReadyForDeliveryPtr;
