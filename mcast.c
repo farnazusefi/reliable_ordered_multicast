@@ -493,6 +493,8 @@ u_int32_t getMinOfArray(u_int32_t *lastDeliveredCounters) {
 	u_int32_t min = -1;
 	int i;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
+		if(i == currentSession.machineIndex - 1)
+			continue;
 		if (currentSession.lastDeliveredCounters[i] < min)
 			min = currentSession.lastDeliveredCounters[i];
 	}
@@ -579,7 +581,7 @@ int putInBuffer(dataMessage *m) {
 		}
 		return 1;
 	}
-	log_debug("not putting in buffer (not in window), counter %d, index %d from process %d", m->lamportCounter, m->index, m->pid);
+	log_debug("not putting in buffer, counter %d, index %d from process %d", m->lamportCounter, m->index, m->pid);
 	return 0;
 }
 
