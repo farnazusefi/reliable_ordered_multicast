@@ -451,7 +451,7 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 		synchronizeWindow();
 	}
 	if (currentSession.state == STATE_FINALIZING
-			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]+1))
+			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
 		doTerminate();
 }
 
