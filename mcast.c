@@ -472,14 +472,15 @@ void handleDataMessage(void *m, int bytes) {
 			int counter = 0;
 			int indexDistance = 0;
 			while (currentPointer != getPointerOfIndex(currentSession.lastInOrderReceivedIndexes[dm->pid - 1])) {
-				indexDistance++;
 				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid) {
 					nackIndices[counter++] = dm->index - indexDistance;
 				}
 				currentPointer = (currentPointer - 1);
 				if (currentPointer == -1)
 					currentPointer = currentSession.windowSize - 1;
-			}
+                indexDistance++;
+
+            }
 			if (counter > 0)
 				sendNack(dm->pid, nackIndices, counter);
 		}
