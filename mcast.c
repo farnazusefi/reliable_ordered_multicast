@@ -369,14 +369,15 @@ void handlePollMessage(void *m, int bytes) {
 	log_debug("handling poll message from %d for %d", message->pid, polledPid);
 	if (polledPid != currentSession.machineIndex)
 		return;
-	if (currentSession.state == STATE_SENDING)
-		resendMessage(currentSession.lastSentIndex);
-	else if (currentSession.state == STATE_RECEIVING) {
+
+	if (currentSession.state == STATE_RECEIVING) {
 		char data[1412];
 		u_int32_t zero = 0;
 		memcpy(data, &zero, 4);
 		sendMessage(TYPE_FINALIZE, data, 1412);
 	}
+	else
+		resendMessage(currentSession.lastSentIndex);
 }
 
 void handleFinalizeMessage(void *m, int bytes) {
@@ -482,6 +483,7 @@ void handleDataMessage(void *m, int bytes) {
 		break;
 	case STATE_FINALIZING:
 		updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
+		break;
 	default:
 		log_warn("discarding unexpected data");
 		break;
