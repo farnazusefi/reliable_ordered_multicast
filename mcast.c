@@ -444,7 +444,6 @@ void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
 }
 
 void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
-	// TODO: not working!!
 	log_debug("attempting to update last delivered counter for process %d, last counter received = %d, my last value from her = %d", pid, lastDeliveredCounter,
 			currentSession.lastDeliveredCounters[pid - 1]);
 	if (currentSession.lastDeliveredCounters[pid - 1] < lastDeliveredCounter) {
@@ -651,7 +650,7 @@ void attemptDelivery() {
 	while (dataRemaining()) {
 		getLowestToDeliver(&pid, &pointer);
 		ws = currentSession.dataMatrix[pid - 1][pointer];
-		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
+		log_warn("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 //		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 
 		deliverToFile(pid, ws.index, ws.randomNumber);
