@@ -466,14 +466,18 @@ void handleDataMessage(void *m, int bytes) {
 			currentSession.localClock = dm->lamportCounter;
 		putInBuffer(dm);
 		if (dm->index > currentSession.lastInOrderReceivedIndexes[dm->pid - 1]) {
-			u_int32_t currentPointer = getPointerOfIndex(currentSession.lastInOrderReceivedIndexes[dm->pid - 1]);
+			u_int32_t currentPointer = getPointerOfIndex(dm->index);
 			u_int32_t nackIndices[currentSession.windowSize];
 			int counter = 0;
-			while (currentPointer != getPointerOfIndex(dm->index)) {
+			int indexDistance = 0;
+			while (currentPointer != getPointerOfIndex(currentSession.lastInOrderReceivedIndexes[dm->pid - 1])) {
+				indexDistance++;
 				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid) {
-					nackIndices[counter++] = currentSession.dataMatrix[dm->pid - 1][currentPointer].index;
+					nackIndices[counter++] = dm->index - indexDistance;
 				}
-				currentPointer = (currentPointer + 1) % currentSession.windowSize;
+				currentPointer = (currentPointer - 1);
+				if (currentPointer == -1)
+					currentPointer = currentSession.windowSize - 1;
 			}
 			if (counter > 0)
 				sendNack(dm->pid, nackIndices, counter);
