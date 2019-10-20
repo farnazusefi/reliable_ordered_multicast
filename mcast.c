@@ -3,7 +3,7 @@
 #include "log.h"
 
 #define TIMEOUT 2000000
-#define WINDOW_SIZE 5
+#define WINDOW_SIZE 50
 
 typedef struct messageT {
 	u_int32_t type;
@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
 	int num;
 	char mess_buf[MAX_MESS_LEN];
 	struct timeval timeout;
-	int debug_mode = 3;
+	int debug_mode = 2;
 	mcast_addr = 225 << 24 | 1 << 16 | 3 << 8 | 50; /* (225.1.3.50) */
 
 	if (argc != 5 && argc != 7) {
@@ -449,7 +449,7 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 		currentSession.lastDeliveredCounters[pid - 1] = lastDeliveredCounter;
 		synchronizeWindow();
 	}
-	log_error("update last delivered ctr, min of array %d , my last ctr %d", getMinOfArray(currentSession.lastDeliveredCounters),
+	log_debug("update last delivered ctr, min of array %d , my last ctr %d", getMinOfArray(currentSession.lastDeliveredCounters),
 			(currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]));
 	if (currentSession.state == STATE_FINALIZING
 			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
@@ -655,7 +655,7 @@ void attemptDelivery() {
 	while (dataRemaining()) {
 		getLowestToDeliver(&pid, &pointer);
 		ws = currentSession.dataMatrix[pid - 1][pointer];
-		log_warn("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
+		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 //		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
 
 		deliverToFile(pid, ws.index, ws.randomNumber);
@@ -745,7 +745,7 @@ void initializeAndSendRandomNumber(int moveStartpointer, u_int32_t destinationPt
 	memcpy(data + 12, garbage_data, 1400);
 	if (ws.index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
-	log_debug("sending data message with number %d, clock %d, index %d", randomNumber, currentSession.localClock, currentSession.lastSentIndex);
+	log_info("sending data message with number %d, clock %d, index %d", randomNumber, currentSession.localClock, currentSession.lastSentIndex);
 	sendMessage(type, data, 1412);
 
 }
