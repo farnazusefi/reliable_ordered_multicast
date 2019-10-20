@@ -563,6 +563,11 @@ int putInBuffer(dataMessage *m) {
 // Check if the received packet's index is in the valid range for me to store
 	if (m->index > currentSession.lastInOrderReceivedIndexes[m->pid - 1] && m->index < (startIndex + currentSession.windowSize)) {
 		log_debug("putting in buffer, counter %d, index %d from process %d to position %d", m->lamportCounter, m->index, m->pid, getPointerOfIndex(m->index));
+		if(currentWindow[getPointerOfIndex(m->index)].valid)
+		{
+			log_debug("not putting in buffer (already in window), counter %d, index %d from process %d", m->lamportCounter, m->index, m->pid);
+			return 0;
+		}
 		ws.index = m->index;
 		ws.lamportCounter = m->lamportCounter;
 		ws.randomNumber = m->randomNumber;
@@ -575,7 +580,7 @@ int putInBuffer(dataMessage *m) {
 		}
 		return 1;
 	}
-	log_debug("not putting in buffer (retransmitted data), counter %d, index %d from process %d", m->lamportCounter, m->index, m->pid);
+	log_debug("not putting in buffer (not in window), counter %d, index %d from process %d", m->lamportCounter, m->index, m->pid);
 	return 0;
 }
 
@@ -596,7 +601,7 @@ int dataRemaining() {
 				continue;
 			}
 		}
-		if (currentSession.machineIndex == i + 1) {
+		if (currentSession.machineIndex - 1 == i) {
 			log_trace("data remaining? process %d (myself), last sent idx = %d, last delivered idx = %d", i + 1, currentSession.lastSentIndex,
 					currentSession.lastDeliveredIndexes[i]);
 			if (currentSession.lastSentIndex == currentSession.lastDeliveredIndexes[i])
