@@ -547,7 +547,8 @@ u_int32_t getPointerOfIndex(u_int32_t index) {
 //	u_int32_t pointer = (currentWindowStartPointer + (index - currentWindow[currentWindowStartPointer].index)) % currentSession.windowSize;
 //	log_debug("pointer to index %d of process %d is %d", index, pid, pointer);
 //	return pointer;
-
+	if (!index)
+		return 0;
 	return (index - 1) % currentSession.windowSize;
 }
 
