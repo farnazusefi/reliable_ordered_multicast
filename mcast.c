@@ -376,8 +376,7 @@ void handlePollMessage(void *m, int bytes) {
 		u_int32_t zero = 0;
 		memcpy(data, &zero, 4);
 		sendMessage(TYPE_FINALIZE, data, 1412);
-	}
-	else
+	} else
 		resendMessage(currentSession.lastSentIndex);
 }
 
@@ -450,7 +449,8 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 		currentSession.lastDeliveredCounters[pid - 1] = lastDeliveredCounter;
 		synchronizeWindow();
 	}
-	log_error("update last delivered ctr, min of array %d , my last ctr %d", getMinOfArray(currentSession.lastDeliveredCounters), (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]));
+	log_error("update last delivered ctr, min of array %d , my last ctr %d", getMinOfArray(currentSession.lastDeliveredCounters),
+			(currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]));
 	if (currentSession.state == STATE_FINALIZING
 			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
 		doTerminate();
@@ -494,7 +494,7 @@ u_int32_t getMinOfArray(u_int32_t *lastDeliveredCounters) {
 	u_int32_t min = -1;
 	int i;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		if(i == currentSession.machineIndex - 1)
+		if (i == currentSession.machineIndex - 1)
 			continue;
 		if (currentSession.lastDeliveredCounters[i] < min)
 			min = currentSession.lastDeliveredCounters[i];
@@ -565,8 +565,7 @@ int putInBuffer(dataMessage *m) {
 // Check if the received packet's index is in the valid range for me to store
 	if (m->index > currentSession.lastInOrderReceivedIndexes[m->pid - 1] && m->index < (startIndex + currentSession.windowSize)) {
 		log_debug("putting in buffer, counter %d, index %d from process %d to position %d", m->lamportCounter, m->index, m->pid, getPointerOfIndex(m->index));
-		if(currentWindow[getPointerOfIndex(m->index)].valid)
-		{
+		if (currentWindow[getPointerOfIndex(m->index)].valid) {
 			log_debug("not putting in buffer (already in window), counter %d, index %d from process %d", m->lamportCounter, m->index, m->pid);
 			return 0;
 		}
@@ -615,9 +614,7 @@ int dataRemaining() {
 		if (!currentSession.dataMatrix[i][pointer].valid)
 			return 0;
 	}
-	if (terminationCtr == currentSession.numberOfMachines){
-		if(currentSession.state != STATE_FINALIZING)
-			currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]++;
+	if (terminationCtr == currentSession.numberOfMachines) {
 		currentSession.state = STATE_FINALIZING;
 		return 0;
 	}
