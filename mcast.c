@@ -217,8 +217,8 @@ int main(int argc, char **argv) {
 	currentSession.sendAddr.sin_port = htons(PORT);
 
 	currentSession.state = STATE_WAITING;
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 900000;
+	timeout.tv_sec = 2;
+	timeout.tv_usec = 0;
 	initializeBuffers();
 
 	log_trace("test");
@@ -615,8 +615,9 @@ int dataRemaining() {
 			return 0;
 	}
 	if (terminationCtr == currentSession.numberOfMachines){
+		if(currentSession.state != STATE_FINALIZING)
+			currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]++;
 		currentSession.state = STATE_FINALIZING;
-		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]++;
 		return 0;
 	}
 	return 1;
