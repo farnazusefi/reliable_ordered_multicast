@@ -367,6 +367,7 @@ void handlePollMessage(void *m, int bytes) {
 	pollMessage *message = (pollMessage*) m;
 	u_int32_t polledPid = message->pollPID;
 	log_debug("handling poll message from %d for %d", message->pid, polledPid);
+	updateLastDeliveredCounter(message->pid, message->lastDeliveredCounter);
 	if (polledPid != currentSession.machineIndex)
 		return;
 
