@@ -589,6 +589,7 @@ int putInBuffer(dataMessage *m) {
 void doTerminate() {
 	log_info("termination conditions hold. Exiting, BYE!");
 	fclose(currentSession.f);
+	resendMessage(currentSession.lastSentIndex);
 	exit(0);
 }
 
