@@ -464,21 +464,21 @@ void handleDataMessage(void *m, int bytes) {
 	case STATE_SENDING:
 		if (dm->lamportCounter > currentSession.localClock)
 			currentSession.localClock = dm->lamportCounter;
-		if (putInBuffer(dm)) {
-			if (dm->index > currentSession.lastInOrderReceivedIndexes[dm->pid - 1]) {
-				u_int32_t currentPointer = getPointerOfIndex(currentSession.lastInOrderReceivedIndexes[dm->pid - 1]);
-				u_int32_t nackIndices[currentSession.windowSize];
-				int counter = 0;
-				while (currentPointer != getPointerOfIndex(dm->index)) {
-					if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid) {
-						nackIndices[counter++] = currentSession.dataMatrix[dm->pid - 1][currentPointer].index;
-					}
-					currentPointer = (currentPointer + 1) % currentSession.windowSize;
+		putInBuffer(dm);
+		if (dm->index > currentSession.lastInOrderReceivedIndexes[dm->pid - 1]) {
+			u_int32_t currentPointer = getPointerOfIndex(currentSession.lastInOrderReceivedIndexes[dm->pid - 1]);
+			u_int32_t nackIndices[currentSession.windowSize];
+			int counter = 0;
+			while (currentPointer != getPointerOfIndex(dm->index)) {
+				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid) {
+					nackIndices[counter++] = currentSession.dataMatrix[dm->pid - 1][currentPointer].index;
 				}
-				if (counter > 0)
-					sendNack(dm->pid, nackIndices, counter);
+				currentPointer = (currentPointer + 1) % currentSession.windowSize;
 			}
+			if (counter > 0)
+				sendNack(dm->pid, nackIndices, counter);
 		}
+
 		updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
 
 		break;
