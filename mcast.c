@@ -609,6 +609,7 @@ int dataRemaining() {
 	}
 	if (terminationCtr == currentSession.numberOfMachines){
 		currentSession.state = STATE_FINALIZING;
+		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]++;
 		return 0;
 	}
 	return 1;
