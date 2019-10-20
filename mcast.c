@@ -513,6 +513,7 @@ void synchronizeWindow() {
 		if (currentSession.dataMatrix[currentSession.machineIndex - 1][windowStartPointer].lamportCounter <= minimumOfWindow
 				&& currentSession.state == STATE_SENDING) {
 			initializeAndSendRandomNumber(1, 0);
+			attemptDelivery();
 		} else
 			break;
 	}
