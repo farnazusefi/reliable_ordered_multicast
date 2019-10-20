@@ -217,8 +217,7 @@ int main(int argc, char **argv) {
 	currentSession.sendAddr.sin_port = htons(PORT);
 
 	currentSession.state = STATE_WAITING;
-	timeout.tv_sec = 2;
-	timeout.tv_usec = 0;
+
 	initializeBuffers();
 
 	log_trace("test");
@@ -239,6 +238,8 @@ int main(int argc, char **argv) {
 	FD_SET(currentSession.receivingSocket, &mask);
 	for (;;) {
 		temp_mask = mask;
+		timeout.tv_sec = 2;
+		timeout.tv_usec = 0;
 		log_debug("selecting ...");
 		num = select(FD_SETSIZE, &temp_mask, &dummy_mask, &dummy_mask, &timeout);
 		if (num > 0) {
