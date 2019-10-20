@@ -4,6 +4,9 @@
 
 #define TIMEOUT 2000000
 #define WINDOW_SIZE 50
+#define WAIT_BEFORE_EXIT 10
+#define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 50
+#define FLOW_CONTROL_VALVE 1000
 
 typedef struct messageT {
 	u_int32_t type;
@@ -77,6 +80,7 @@ typedef struct sessionT {
 	u_int32_t lastSentIndex;
 	u_int32_t lastDeliveredPointer;
 	int exitCounter;
+	struct timeval exitTimestamp;
 
 	int sendingSocket;
 	int receivingSocket;
@@ -138,6 +142,13 @@ u_int32_t getPointerOfIndex(u_int32_t index);
 
 void resendMessage(u_int32_t index);
 
+void busyWait(u_int32_t loopCount)
+{
+    int i;
+    u_int32_t loopVar = (rand() % 100) + loopCount;
+    for(i = 0; i < loopVar; i++);
+}
+
 session currentSession;
 
 int main(int argc, char **argv) {
@@ -160,7 +171,7 @@ int main(int argc, char **argv) {
 		printf("Usage: ./mcast <num of packets> <machine index> <num of machines> <loss rate> [delay] [debug mode(1-5)]  \n");
 		exit(1);
 	}
-
+    currentSession.delay = FLOW_CONTROL_VALVE;
 	// optional args
 	if (argc == 7) {
 		debug_mode = atoi(argv[6]);
@@ -253,6 +264,15 @@ int main(int argc, char **argv) {
 		} else // timeout for select
 		{
 			int i;
+            if (currentSession.state == STATE_FINALIZING && currentSession.exitCounter
+                && getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
+            {
+                struct timeval current;
+                gettimeofday(&current, NULL);
+                if(current.tv_sec - currentSession.exitTimestamp.tv_sec > WAIT_BEFORE_EXIT)
+                    doTerminate();
+            }
+
 			log_info("timeout in select. Polling all processes");
 			if (currentSession.state == STATE_WAITING)
 				continue;
@@ -458,7 +478,9 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
     {
 	    currentSession.exitCounter++;
-	    if(currentSession.exitCounter >= 10000)
+	    if(currentSession.exitCounter == 1)
+            gettimeofday(&currentSession.exitTimestamp, NULL);
+	    if(currentSession.exitCounter >= NUM_OF_FINALIZE_MSGS_BEFORE_EXIT)
             doTerminate();
     }
 }
@@ -768,12 +790,10 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 	memcpy(message, &type, 4);
 	memcpy(message + 4, &currentSession.machineIndex, 4);
 	u_int32_t lastCounter = currentSession.lastDeliveredCounters[currentSession.machineIndex - 1];
-//	if (currentSession.state == STATE_FINALIZING)
-//		lastCounter++;
 	memcpy(message + 8, &lastCounter, 4);
 	memcpy(message + 12, dp, payloadSize);
+	busyWait(currentSession.delay);
 	sendto(currentSession.sendingSocket, &message, payloadSize + 12, 0, (struct sockaddr*) &currentSession.sendAddr, sizeof(currentSession.sendAddr));
-//	usleep( 100000 );
 }
 
 void prepareFile() {
