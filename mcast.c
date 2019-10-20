@@ -76,6 +76,7 @@ typedef struct sessionT {
 	u_int32_t windowSize;
 	u_int32_t lastSentIndex;
 	u_int32_t lastDeliveredPointer;
+	int exitCounter;
 
 	int sendingSocket;
 	int receivingSocket;
@@ -299,6 +300,7 @@ void initializeBuffers() {
 	currentSession.lastSentIndex = 0;
 	currentSession.isFinalDelivery = 0;
 	currentSession.lastDeliveredPointer = 0;
+	currentSession.exitCounter = 0;
 	srand(time(0));
 	prepareFile();
 }
@@ -454,7 +456,11 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 			(currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]));
 	if (currentSession.state == STATE_FINALIZING
 			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
-		doTerminate();
+    {
+	    currentSession.exitCounter++;
+	    if(currentSession.exitCounter >= 10000)
+            doTerminate();
+    }
 }
 
 void handleDataMessage(void *m, int bytes) {
