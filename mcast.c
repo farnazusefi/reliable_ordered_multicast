@@ -615,6 +615,8 @@ int dataRemaining() {
 			return 0;
 	}
 	if (terminationCtr == currentSession.numberOfMachines) {
+		if (currentSession.state != STATE_FINALIZING)
+			currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]++;
 		currentSession.state = STATE_FINALIZING;
 		return 0;
 	}
@@ -751,8 +753,8 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 	memcpy(message, &type, 4);
 	memcpy(message + 4, &currentSession.machineIndex, 4);
 	u_int32_t lastCounter = currentSession.lastDeliveredCounters[currentSession.machineIndex - 1];
-	if (currentSession.state == STATE_FINALIZING)
-		lastCounter++;
+//	if (currentSession.state == STATE_FINALIZING)
+//		lastCounter++;
 	memcpy(message + 8, &lastCounter, 4);
 	memcpy(message + 12, dp, payloadSize);
 	sendto(currentSession.sendingSocket, &message, payloadSize + 12, 0, (struct sockaddr*) &currentSession.sendAddr, sizeof(currentSession.sendAddr));
