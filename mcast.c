@@ -97,7 +97,7 @@ typedef struct fileToReceiveT {
 
 void prepareFile();
 
-u_int32_t getMinOfArray(u_int32_t *lastDeliveredCounters);
+u_int32_t getMinOfArray(u_int32_t *lastDeliveredCounters, int includeSelf);
 
 int parse(void *buf, int bytes);
 
@@ -184,7 +184,7 @@ void driveMachine() {
 		{
 			int i;
 			if (currentSession.state == STATE_FINALIZING && currentSession.exitCounter
-					&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1])) {
+					&& getMinOfArray(currentSession.lastDeliveredCounters, 0) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1])) {
 				struct timeval current;
 				gettimeofday(&current, NULL);
 				if (current.tv_sec - currentSession.exitTimestamp.tv_sec > WAIT_BEFORE_EXIT) {
@@ -472,10 +472,10 @@ int updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 		currentSession.lastDeliveredCounters[pid - 1] = lastDeliveredCounter;
 		synchronizeWindow();
 	}
-	log_debug("update last delivered ctr, min of array %d , my last ctr %d", getMinOfArray(currentSession.lastDeliveredCounters),
+	log_debug("update last delivered ctr, min of array %d , my last ctr %d", getMinOfArray(currentSession.lastDeliveredCounters, 0),
 			(currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]));
 	if (currentSession.state == STATE_FINALIZING
-			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1])) {
+			&& getMinOfArray(currentSession.lastDeliveredCounters, 0) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1])) {
 		currentSession.exitCounter++;
 		if (currentSession.exitCounter == 1) {
 			gettimeofday(&currentSession.exitTimestamp, NULL);
@@ -528,11 +528,11 @@ int handleDataMessage(void *m, int bytes) {
 	}
 	return 0;
 }
-u_int32_t getMinOfArray(u_int32_t *lastDeliveredCounters) {
+u_int32_t getMinOfArray(u_int32_t *lastDeliveredCounters, int includeSelf) {
 	u_int32_t min = -1;
 	int i;
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		if (i == currentSession.machineIndex - 1)
+		if (!includeSelf && i == currentSession.machineIndex - 1)
 			continue;
 		if (currentSession.lastDeliveredCounters[i] < min)
 			min = currentSession.lastDeliveredCounters[i];
@@ -541,7 +541,7 @@ u_int32_t getMinOfArray(u_int32_t *lastDeliveredCounters) {
 }
 
 void synchronizeWindow() {
-	u_int32_t minimumOfWindow = getMinOfArray(currentSession.lastDeliveredCounters);
+	u_int32_t minimumOfWindow = getMinOfArray(currentSession.lastDeliveredCounters, 1);
 	log_debug("Synchronizing my window, minimum delivered counter is %d", minimumOfWindow);
 
 	while (currentSession.lastSentIndex < currentSession.numberOfPackets) {
