@@ -627,7 +627,7 @@ void doTerminate() {
 	log_info("termination conditions hold. Exiting, BYE!");
 	fclose(currentSession.f);
 	reinitialize();
-//	exit(0);
+	exit(0);
 }
 
 int dataRemaining() {
@@ -855,7 +855,7 @@ void reinitialize() {
 	memset(currentSession.dataMatrix, 0, currentSession.numberOfMachines * sizeof(windowSlot*));
 
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		memset(currentSession.dataMatrix[i], 0, currentSession.windowSize * sizeof(windowSlot));
+		memset(&currentSession.dataMatrix[i], 0, currentSession.windowSize * sizeof(windowSlot));
 	}
 
 	currentSession.localClock = 0;
