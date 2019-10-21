@@ -99,17 +99,17 @@ void prepareFile();
 
 u_int32_t getMinOfArray(u_int32_t *lastDeliveredCounters);
 
-void parse(void *buf, int bytes);
+int parse(void *buf, int bytes);
 
 void handleStartMessage(message *m, int bytes);
 
-void handleDataMessage(void *m, int bytes);
+int handleDataMessage(void *m, int bytes);
 
-void handleFeedbackMessage(char *m, int bytes, u_int32_t pid);
+int handleFeedbackMessage(char *m, int bytes, u_int32_t pid);
 
-void handleFinalizeMessage(void *m, int bytes);
+int handleFinalizeMessage(void *m, int bytes);
 
-void handlePollMessage(void *m, int bytes);
+int handlePollMessage(void *m, int bytes);
 
 void handleTimeOut(u_int32_t pid);
 
@@ -131,7 +131,7 @@ void updateLastReceivedIndex(u_int32_t pid);
 
 void attemptDelivery();
 
-void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter);
+int updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter);
 
 void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData);
 
@@ -147,6 +147,65 @@ void busyWait();
 
 session currentSession;
 
+void driveMachine() {
+	fd_set mask;
+	fd_set dummy_mask, temp_mask;
+	int bytes;
+	int num;
+	char mess_buf[MAX_MESS_LEN];
+	struct timeval timeout;
+	int terminate = 0;
+
+	log_info("Waiting for start message");
+	bytes = recv(currentSession.receivingSocket, mess_buf, sizeof(mess_buf), 0);
+	mess_buf[bytes] = 0;
+	log_debug("received : %s\n", mess_buf);
+	parse((void*) mess_buf, bytes);
+
+	FD_ZERO(&mask);
+	FD_ZERO(&dummy_mask);
+	FD_SET(currentSession.receivingSocket, &mask);
+	for (;;) {
+		temp_mask = mask;
+		timeout.tv_sec = 2;
+		timeout.tv_usec = 0;
+		log_debug("selecting ...");
+		num = select(FD_SETSIZE, &temp_mask, &dummy_mask, &dummy_mask, &timeout);
+		if (num > 0) {
+			if (FD_ISSET(currentSession.receivingSocket, &temp_mask)) {
+				bytes = recv(currentSession.receivingSocket, mess_buf, sizeof(mess_buf), 0); //TODO change to recv_dbg
+				mess_buf[bytes] = 0;
+				log_debug("received : %s\n", mess_buf);
+				terminate = parse((void*) mess_buf, bytes);
+				if (terminate)
+					return;
+			}
+		} else // timeout for select
+		{
+			int i;
+			if (currentSession.state == STATE_FINALIZING && currentSession.exitCounter
+					&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1])) {
+				struct timeval current;
+				gettimeofday(&current, NULL);
+				if (current.tv_sec - currentSession.exitTimestamp.tv_sec > WAIT_BEFORE_EXIT) {
+					doTerminate();
+					return;
+				}
+
+			}
+
+			log_info("timeout in select. Polling all processes");
+			if (currentSession.state == STATE_WAITING)
+				continue;
+			for (i = 1; i <= currentSession.numberOfMachines; i++) {
+				if (i != currentSession.machineIndex)
+					handleTimeOut(i);
+
+			}
+		}
+	}
+}
+
 int main(int argc, char **argv) {
 	struct sockaddr_in name;
 
@@ -154,12 +213,6 @@ int main(int argc, char **argv) {
 	struct ip_mreq mreq;
 	unsigned char ttl_val;
 
-	fd_set mask;
-	fd_set dummy_mask, temp_mask;
-	int bytes;
-	int num;
-	char mess_buf[MAX_MESS_LEN];
-	struct timeval timeout;
 	int debug_mode = 2;
 	mcast_addr = 225 << 24 | 1 << 16 | 3 << 8 | 50; /* (225.1.3.50) */
 
@@ -167,7 +220,7 @@ int main(int argc, char **argv) {
 		printf("Usage: ./mcast <num of packets> <machine index> <num of machines> <loss rate> [delay] [debug mode(1-5)]  \n");
 		exit(1);
 	}
-    currentSession.delay = FLOW_CONTROL_VALVE;
+	currentSession.delay = FLOW_CONTROL_VALVE;
 	// optional args
 	if (argc == 7) {
 		debug_mode = atoi(argv[6]);
@@ -235,50 +288,9 @@ int main(int argc, char **argv) {
 	log_error("printing error logs");
 	log_fatal("noting fatal will hopefully occur!");
 
-	log_info("Waiting for start message");
-	bytes = recv(currentSession.receivingSocket, mess_buf, sizeof(mess_buf), 0);
-	mess_buf[bytes] = 0;
-	log_debug("received : %s\n", mess_buf);
-	parse((void*) mess_buf, bytes);
+	while(1)
+		driveMachine();
 
-	FD_ZERO(&mask);
-	FD_ZERO(&dummy_mask);
-	FD_SET(currentSession.receivingSocket, &mask);
-	for (;;) {
-		temp_mask = mask;
-		timeout.tv_sec = 2;
-		timeout.tv_usec = 0;
-		log_debug("selecting ...");
-		num = select(FD_SETSIZE, &temp_mask, &dummy_mask, &dummy_mask, &timeout);
-		if (num > 0) {
-			if (FD_ISSET(currentSession.receivingSocket, &temp_mask)) {
-				bytes = recv(currentSession.receivingSocket, mess_buf, sizeof(mess_buf), 0); //TODO change to recv_dbg
-				mess_buf[bytes] = 0;
-				log_debug("received : %s\n", mess_buf);
-				parse((void*) mess_buf, bytes);
-			}
-		} else // timeout for select
-		{
-			int i;
-            if (currentSession.state == STATE_FINALIZING && currentSession.exitCounter
-                && getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
-            {
-                struct timeval current;
-                gettimeofday(&current, NULL);
-                if(current.tv_sec - currentSession.exitTimestamp.tv_sec > WAIT_BEFORE_EXIT)
-                    doTerminate();
-            }
-
-			log_info("timeout in select. Polling all processes");
-			if (currentSession.state == STATE_WAITING)
-				continue;
-			for (i = 1; i <= currentSession.numberOfMachines; i++) {
-				if (i != currentSession.machineIndex)
-					handleTimeOut(i);
-
-			}
-		}
-	}
 	return 0;
 }
 
@@ -331,35 +343,27 @@ void checkTimeoutForOthers() {
 	}
 }
 
-void parse(void *buf, int bytes) {
+int parse(void *buf, int bytes) {
 	message *m = (message*) buf;
+	int terminated = 0;
 	if (m->pid == currentSession.machineIndex)
-		return;
+		return 0;
 	log_debug("parsing ...");
 	switch (m->type) {
 	case TYPE_START:
-		//log_error("%d", m->type);
 		handleStartMessage(m, bytes);
 		break;
 	case TYPE_DATA:
-		//log_error("%d", m->type);
-
-		handleDataMessage(buf, bytes);
+		terminated = handleDataMessage(buf, bytes);
 		break;
 	case TYPE_FEEDBACK:
-		//log_error("%d", m->type);
-
-		handleFeedbackMessage(buf, bytes, m->pid);
+		terminated = handleFeedbackMessage(buf, bytes, m->pid);
 		break;
 	case TYPE_FINALIZE:
-		//log_error("%d", m->type);
-
-		handleFinalizeMessage(buf, bytes);
+		terminated = handleFinalizeMessage(buf, bytes);
 		break;
 	case TYPE_POLL:
-		//log_error("%d", m->type);
-
-		handlePollMessage(buf, bytes);
+		terminated = handlePollMessage(buf, bytes);
 		break;
 	default:
 		log_warn("invalid type %d\n", m->type);
@@ -369,15 +373,19 @@ void parse(void *buf, int bytes) {
 		gettimeofday(&currentSession.timoutTimestamps[m->pid - 1], NULL);
 		checkTimeoutForOthers();
 	}
+	return terminated;
 }
 
-void handlePollMessage(void *m, int bytes) {
+int handlePollMessage(void *m, int bytes) {
 	pollMessage *message = (pollMessage*) m;
 	u_int32_t polledPid = message->pollPID;
+	int terminated = 0;
 	log_debug("handling poll message from %d for %d", message->pid, polledPid);
-	updateLastDeliveredCounter(message->pid, message->lastDeliveredCounter);
+	terminated = updateLastDeliveredCounter(message->pid, message->lastDeliveredCounter);
+	if (terminated)
+		return 1;
 	if (polledPid != currentSession.machineIndex)
-		return;
+		return 0;
 
 	if (currentSession.state == STATE_RECEIVING) {
 		char data[1412];
@@ -386,20 +394,22 @@ void handlePollMessage(void *m, int bytes) {
 		sendMessage(TYPE_FINALIZE, data, 1412);
 	} else
 		resendMessage(currentSession.lastSentIndex);
+	return 0;
 }
 
-void handleFinalizeMessage(void *m, int bytes) {
+int handleFinalizeMessage(void *m, int bytes) {
 
 	dataMessage *dm = (dataMessage*) m;
+	int terminated = 0;
 	log_debug("received finalize message from %d, with index %d", dm->pid, dm->index);
 	currentSession.fullyDeliveredProcess[dm->pid - 1] = 1;
 	if (dm->index == 0) {
 		currentSession.lastExpectedIndexes[dm->pid - 1] = 1;
-		updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
-		return;
+		terminated = updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
+		return terminated;
 	}
 	currentSession.lastExpectedIndexes[dm->pid - 1] = dm->index;
-	handleDataMessage(m, bytes);
+	return handleDataMessage(m, bytes);
 }
 
 void resendMessage(u_int32_t index) {
@@ -420,18 +430,19 @@ void resendMessage(u_int32_t index) {
 	sendMessage(type, data, 1412);
 }
 
-void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
+int handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
 	u_int32_t feedBackType;
 	memcpy(&feedBackType, m + 12, 4);
 	u_int32_t lastDeliveredCounter;
 	u_int32_t numOfNacks;
 	u_int32_t i;
 	u_int32_t machineIdx;
+	int terminated = 0;
 	switch (feedBackType) {
 	case FEEDBACK_ACK:
 		memcpy(&lastDeliveredCounter, m + 16, 4);
 		log_debug("handling Ack for counter %d from process %d", lastDeliveredCounter, pid);
-		updateLastDeliveredCounter(pid, lastDeliveredCounter);
+		terminated = updateLastDeliveredCounter(pid, lastDeliveredCounter);
 		currentSession.fullyDeliveredProcess[pid - 1] = 1;
 		break;
 	case FEEDBACK_NACK:
@@ -449,9 +460,10 @@ void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
 	default:
 		break;
 	}
+	return terminated;
 }
 
-void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
+int updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 	log_debug("attempting to update last delivered counter for process %d, last counter received = %d, my last value from her = %d", pid, lastDeliveredCounter,
 			currentSession.lastDeliveredCounters[pid - 1]);
 	if (currentSession.lastDeliveredCounters[pid - 1] < lastDeliveredCounter) {
@@ -461,19 +473,21 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 	log_debug("update last delivered ctr, min of array %d , my last ctr %d", getMinOfArray(currentSession.lastDeliveredCounters),
 			(currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]));
 	if (currentSession.state == STATE_FINALIZING
-			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
-    {
-	    currentSession.exitCounter++;
-	    if(currentSession.exitCounter == 1){
-            gettimeofday(&currentSession.exitTimestamp, NULL);
-            log_info("Termination conditions are okay for me. Getting ready to terminate ...");
-	    }
-	    if(currentSession.exitCounter >= NUM_OF_FINALIZE_MSGS_BEFORE_EXIT)
-            doTerminate();
-    }
+			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1])) {
+		currentSession.exitCounter++;
+		if (currentSession.exitCounter == 1) {
+			gettimeofday(&currentSession.exitTimestamp, NULL);
+			log_info("Termination conditions are okay for me. Getting ready to terminate ...");
+		}
+		if (currentSession.exitCounter >= NUM_OF_FINALIZE_MSGS_BEFORE_EXIT) {
+			doTerminate();
+			return 1;
+		}
+	}
+	return 0;
 }
 
-void handleDataMessage(void *m, int bytes) {
+int handleDataMessage(void *m, int bytes) {
 	dataMessage *dm = (dataMessage*) m;
 	log_debug("handling data with counter= %d, index = %d from process %d", dm->lamportCounter, dm->index, dm->pid);
 	switch (currentSession.state) {
@@ -494,23 +508,23 @@ void handleDataMessage(void *m, int bytes) {
 				currentPointer = (currentPointer - 1);
 				if (currentPointer == -1)
 					currentPointer = currentSession.windowSize - 1;
-                indexDistance++;
+				indexDistance++;
 
-            }
+			}
 			if (counter > 0)
 				sendNack(dm->pid, nackIndices, counter);
 		}
 
-		updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
+		return updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
 
 		break;
 	case STATE_FINALIZING:
-		updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
-		break;
+		return updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
 	default:
 		log_warn("discarding unexpected data");
 		break;
 	}
+	return 0;
 }
 u_int32_t getMinOfArray(u_int32_t *lastDeliveredCounters) {
 	u_int32_t min = -1;
@@ -622,8 +636,9 @@ int dataRemaining() {
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		log_trace("data remaining? process %d, fully delivered = %d", i + 1, currentSession.fullyDeliveredProcess[i]);
 		if (currentSession.fullyDeliveredProcess[i]) {
-            log_trace("data remaining? process %d, it is fully delivered, last delivered index = %d, last expected index = %d", i + 1, currentSession.lastDeliveredIndexes[i], currentSession.lastExpectedIndexes[i]);
-            if (currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i]) {
+			log_trace("data remaining? process %d, it is fully delivered, last delivered index = %d, last expected index = %d", i + 1,
+					currentSession.lastDeliveredIndexes[i], currentSession.lastExpectedIndexes[i]);
+			if (currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i]) {
 				terminationCtr++;
 				continue;
 			}
@@ -819,15 +834,14 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 	}
 }
 
-void busyWait(u_int32_t loopCount)
-{
-    int i;
-    u_int32_t loopVar = (rand() % 100) + loopCount;
-    for(i = 0; i < loopVar; i++);
+void busyWait(u_int32_t loopCount) {
+	int i;
+	u_int32_t loopVar = (rand() % 100) + loopCount;
+	for (i = 0; i < loopVar; i++)
+		;
 }
 
-void reinitialize()
-{
+void reinitialize() {
 	u_int32_t i;
 	log_info("reinitializing buffers");
 	currentSession.state = STATE_WAITING;
