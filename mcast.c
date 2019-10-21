@@ -3,11 +3,11 @@
 #include "recv_dbg.h"
 #include "log.h"
 
-#define TIMEOUT 2000000
-#define WINDOW_SIZE 50
+#define TIMEOUT 20000
+#define WINDOW_SIZE 200
 #define WAIT_BEFORE_EXIT 10
-#define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 50
-#define FLOW_CONTROL_VALVE 1000
+#define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 100
+#define FLOW_CONTROL_VALVE 100
 
 typedef struct messageT {
 	u_int32_t type;
@@ -566,8 +566,8 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 	memcpy(data + 8, &length, 4);
 	int i;
 	for (i = 1; i <= length; i++) {
-		memcpy(data + ((4 * i) + 8), &indexes[i - 1], 4);
-		log_debug("sending NACK for %d messages, index=%d", length, indexes[i - 1]);
+		memcpy(data + ((4 * i) + 8), &indexes[length - i], 4);
+		log_debug("sending NACK for %d messages, index=%d", length, indexes[length - i]);
 	}
 
 	sendMessage(TYPE_FEEDBACK, data, 12 + sizeof(u_int32_t) * length);
