@@ -232,12 +232,12 @@ int main(int argc, char **argv) {
 
 	initializeBuffers();
 
-	log_trace("test");
-	log_debug("test");
-	log_info("test");
-	log_warn("test");
-	log_error("test");
-	log_fatal("test");
+	log_trace("printing trace logs");
+	log_debug("printing debug logs");
+	log_info("printing info logs");
+	log_warn("printing warning logs");
+	log_error("printing error logs");
+	log_fatal("noting fatal will hopefully occur!");
 
 	log_info("Waiting for start message");
 	bytes = recv(currentSession.receivingSocket, mess_buf, sizeof(mess_buf), 0);
@@ -447,6 +447,7 @@ void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
 		memcpy(&lastDeliveredCounter, m + 16, 4);
 		log_debug("handling Ack for counter %d from process %d", lastDeliveredCounter, pid);
 		updateLastDeliveredCounter(pid, lastDeliveredCounter);
+		currentSession.fullyDeliveredProcess[pid - 1] = 1;
 		break;
 	case FEEDBACK_NACK:
 		memcpy(&machineIdx, m + 16, 4);
@@ -634,7 +635,8 @@ int dataRemaining() {
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		log_trace("data remaining? process %d, fully delivered = %d", i + 1, currentSession.fullyDeliveredProcess[i]);
 		if (currentSession.fullyDeliveredProcess[i]) {
-			if (currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i]) {
+            log_trace("data remaining? process %d, it is fully delivered, last delivered index = %d, last expected index = %d", i + 1, currentSession.lastDeliveredIndexes[i], currentSession.lastExpectedIndexes[i]);
+            if (currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i]) {
 				terminationCtr++;
 				continue;
 			}
