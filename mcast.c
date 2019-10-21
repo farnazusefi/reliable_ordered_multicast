@@ -4,6 +4,9 @@
 
 #define TIMEOUT 2000000
 #define WINDOW_SIZE 50
+#define WAIT_BEFORE_EXIT 10
+#define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 50
+#define FLOW_CONTROL_VALVE 1000
 
 typedef struct messageT {
 	u_int32_t type;
@@ -76,6 +79,8 @@ typedef struct sessionT {
 	u_int32_t windowSize;
 	u_int32_t lastSentIndex;
 	u_int32_t lastDeliveredPointer;
+	int exitCounter;
+	struct timeval exitTimestamp;
 
 	int sendingSocket;
 	int receivingSocket;
@@ -137,6 +142,13 @@ u_int32_t getPointerOfIndex(u_int32_t index);
 
 void resendMessage(u_int32_t index);
 
+void busyWait(u_int32_t loopCount)
+{
+    int i;
+    u_int32_t loopVar = (rand() % 100) + loopCount;
+    for(i = 0; i < loopVar; i++);
+}
+
 session currentSession;
 
 int main(int argc, char **argv) {
@@ -159,7 +171,7 @@ int main(int argc, char **argv) {
 		printf("Usage: ./mcast <num of packets> <machine index> <num of machines> <loss rate> [delay] [debug mode(1-5)]  \n");
 		exit(1);
 	}
-
+    currentSession.delay = FLOW_CONTROL_VALVE;
 	// optional args
 	if (argc == 7) {
 		debug_mode = atoi(argv[6]);
@@ -220,12 +232,12 @@ int main(int argc, char **argv) {
 
 	initializeBuffers();
 
-	log_trace("test");
-	log_debug("test");
-	log_info("test");
-	log_warn("test");
-	log_error("test");
-	log_fatal("test");
+	log_trace("printing trace logs");
+	log_debug("printing debug logs");
+	log_info("printing info logs");
+	log_warn("printing warning logs");
+	log_error("printing error logs");
+	log_fatal("noting fatal will hopefully occur!");
 
 	log_info("Waiting for start message");
 	bytes = recv(currentSession.receivingSocket, mess_buf, sizeof(mess_buf), 0);
@@ -252,6 +264,15 @@ int main(int argc, char **argv) {
 		} else // timeout for select
 		{
 			int i;
+            if (currentSession.state == STATE_FINALIZING && currentSession.exitCounter
+                && getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
+            {
+                struct timeval current;
+                gettimeofday(&current, NULL);
+                if(current.tv_sec - currentSession.exitTimestamp.tv_sec > WAIT_BEFORE_EXIT)
+                    doTerminate();
+            }
+
 			log_info("timeout in select. Polling all processes");
 			if (currentSession.state == STATE_WAITING)
 				continue;
@@ -299,6 +320,7 @@ void initializeBuffers() {
 	currentSession.lastSentIndex = 0;
 	currentSession.isFinalDelivery = 0;
 	currentSession.lastDeliveredPointer = 0;
+	currentSession.exitCounter = 0;
 	srand(time(0));
 	prepareFile();
 }
@@ -425,6 +447,7 @@ void handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
 		memcpy(&lastDeliveredCounter, m + 16, 4);
 		log_debug("handling Ack for counter %d from process %d", lastDeliveredCounter, pid);
 		updateLastDeliveredCounter(pid, lastDeliveredCounter);
+		currentSession.fullyDeliveredProcess[pid - 1] = 1;
 		break;
 	case FEEDBACK_NACK:
 		memcpy(&machineIdx, m + 16, 4);
@@ -454,7 +477,13 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 			(currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]));
 	if (currentSession.state == STATE_FINALIZING
 			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
-		doTerminate();
+    {
+	    currentSession.exitCounter++;
+	    if(currentSession.exitCounter == 1)
+            gettimeofday(&currentSession.exitTimestamp, NULL);
+	    if(currentSession.exitCounter >= NUM_OF_FINALIZE_MSGS_BEFORE_EXIT)
+            doTerminate();
+    }
 }
 
 void handleDataMessage(void *m, int bytes) {
@@ -472,14 +501,15 @@ void handleDataMessage(void *m, int bytes) {
 			int counter = 0;
 			int indexDistance = 0;
 			while (currentPointer != getPointerOfIndex(currentSession.lastInOrderReceivedIndexes[dm->pid - 1])) {
-				indexDistance++;
 				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid) {
 					nackIndices[counter++] = dm->index - indexDistance;
 				}
 				currentPointer = (currentPointer - 1);
 				if (currentPointer == -1)
 					currentPointer = currentSession.windowSize - 1;
-			}
+                indexDistance++;
+
+            }
 			if (counter > 0)
 				sendNack(dm->pid, nackIndices, counter);
 		}
@@ -605,7 +635,8 @@ int dataRemaining() {
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		log_trace("data remaining? process %d, fully delivered = %d", i + 1, currentSession.fullyDeliveredProcess[i]);
 		if (currentSession.fullyDeliveredProcess[i]) {
-			if (currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i]) {
+            log_trace("data remaining? process %d, it is fully delivered, last delivered index = %d, last expected index = %d", i + 1, currentSession.lastDeliveredIndexes[i], currentSession.lastExpectedIndexes[i]);
+            if (currentSession.lastDeliveredIndexes[i] == currentSession.lastExpectedIndexes[i]) {
 				terminationCtr++;
 				continue;
 			}
@@ -711,6 +742,7 @@ void handleStartMessage(message *m, int bytes) {
 			startSending();
 		} else {
 			currentSession.state = STATE_RECEIVING;
+			currentSession.fullyDeliveredProcess[currentSession.machineIndex - 1] = 1;
 		}
 		break;
 	default:
@@ -761,12 +793,10 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 	memcpy(message, &type, 4);
 	memcpy(message + 4, &currentSession.machineIndex, 4);
 	u_int32_t lastCounter = currentSession.lastDeliveredCounters[currentSession.machineIndex - 1];
-//	if (currentSession.state == STATE_FINALIZING)
-//		lastCounter++;
 	memcpy(message + 8, &lastCounter, 4);
 	memcpy(message + 12, dp, payloadSize);
+	busyWait(currentSession.delay);
 	sendto(currentSession.sendingSocket, &message, payloadSize + 12, 0, (struct sockaddr*) &currentSession.sendAddr, sizeof(currentSession.sendAddr));
-//	usleep( 100000 );
 }
 
 void prepareFile() {
