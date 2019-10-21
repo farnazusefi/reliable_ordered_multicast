@@ -67,7 +67,6 @@ typedef struct sessionT {
 	u_int32_t *lastDeliveredIndexes;
 	u_int32_t *fullyDeliveredProcess;
 	u_int32_t *lastExpectedIndexes;
-	windowSlot **deliveryBuffer;
 
 	struct timeval *timoutTimestamps;
 
@@ -142,12 +141,9 @@ u_int32_t getPointerOfIndex(u_int32_t index);
 
 void resendMessage(u_int32_t index);
 
-void busyWait(u_int32_t loopCount)
-{
-    int i;
-    u_int32_t loopVar = (rand() % 100) + loopCount;
-    for(i = 0; i < loopVar; i++);
-}
+void reinitialize();
+
+void busyWait();
 
 session currentSession;
 
@@ -297,7 +293,6 @@ void initializeBuffers() {
 	currentSession.lastDeliveredIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
 	currentSession.timoutTimestamps = (struct timeval*) malloc(currentSession.numberOfMachines * sizeof(struct timeval));
 	currentSession.windowSize = WINDOW_SIZE;
-	currentSession.deliveryBuffer = (windowSlot**) calloc(currentSession.numberOfMachines, sizeof(windowSlot*));
 	currentSession.fullyDeliveredProcess = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
 	currentSession.lastExpectedIndexes = (u_int32_t*) calloc(currentSession.numberOfMachines, sizeof(u_int32_t));
 
@@ -306,23 +301,13 @@ void initializeBuffers() {
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		currentSession.dataMatrix[i] = (windowSlot*) calloc(currentSession.windowSize, sizeof(windowSlot));
 	}
-	log_info("window slot 0_0: %d, %d, %d", currentSession.dataMatrix[0][0].index, currentSession.dataMatrix[0][0].lamportCounter,
-			currentSession.dataMatrix[0][0].randomNumber);
-	log_info("window slot 0_2: %d, %d, %d", currentSession.dataMatrix[0][2].index, currentSession.dataMatrix[0][2].lamportCounter,
-			currentSession.dataMatrix[0][2].randomNumber);
-	log_info("window slot 1_0: %d, %d, %d", currentSession.dataMatrix[1][0].index, currentSession.dataMatrix[1][0].lamportCounter,
-			currentSession.dataMatrix[1][0].randomNumber);
-	log_info("window slot 1_4: %d, %d, %d", currentSession.dataMatrix[1][4].index, currentSession.dataMatrix[1][4].lamportCounter,
-			currentSession.dataMatrix[1][4].randomNumber);
-	log_info("window slot 2_3: %d, %d, %d", currentSession.dataMatrix[2][3].index, currentSession.dataMatrix[2][3].lamportCounter,
-			currentSession.dataMatrix[2][3].randomNumber);
+
 	currentSession.localClock = 0;
 	currentSession.lastSentIndex = 0;
 	currentSession.isFinalDelivery = 0;
 	currentSession.lastDeliveredPointer = 0;
 	currentSession.exitCounter = 0;
 	srand(time(0));
-	prepareFile();
 }
 
 void handleTimeOut(u_int32_t pid) {
@@ -479,8 +464,10 @@ void updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 			&& getMinOfArray(currentSession.lastDeliveredCounters) == (currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]))
     {
 	    currentSession.exitCounter++;
-	    if(currentSession.exitCounter == 1)
+	    if(currentSession.exitCounter == 1){
             gettimeofday(&currentSession.exitTimestamp, NULL);
+            log_info("Termination conditions are okay for me. Getting ready to terminate ...");
+	    }
 	    if(currentSession.exitCounter >= NUM_OF_FINALIZE_MSGS_BEFORE_EXIT)
             doTerminate();
     }
@@ -625,8 +612,8 @@ int putInBuffer(dataMessage *m) {
 void doTerminate() {
 	log_info("termination conditions hold. Exiting, BYE!");
 	fclose(currentSession.f);
-	resendMessage(currentSession.lastSentIndex);
-	exit(0);
+	reinitialize();
+//	exit(0);
 }
 
 int dataRemaining() {
@@ -733,6 +720,7 @@ void handleStartMessage(message *m, int bytes) {
 	log_info("handling start message. Starting ...");
 	switch (currentSession.state) {
 	case STATE_WAITING:
+		prepareFile();
 		gettimeofday(&t, NULL);
 		for (i = 0; i < currentSession.numberOfMachines; i++) {
 			currentSession.timoutTimestamps[i] = t;
@@ -829,4 +817,36 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 		currentSession.fullyDeliveredProcess[pid - 1] = 1;
 		currentSession.lastExpectedIndexes[pid - 1] = index;
 	}
+}
+
+void busyWait(u_int32_t loopCount)
+{
+    int i;
+    u_int32_t loopVar = (rand() % 100) + loopCount;
+    for(i = 0; i < loopVar; i++);
+}
+
+void reinitialize()
+{
+	u_int32_t i;
+	log_info("reinitializing buffers");
+	currentSession.state = STATE_WAITING;
+
+	memset(&currentSession.lastDeliveredCounters, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(&currentSession.lastInOrderReceivedIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(&currentSession.highestReceivedIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(&currentSession.lastDeliveredIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(&currentSession.fullyDeliveredProcess, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(&currentSession.lastExpectedIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(&currentSession.dataMatrix, 0, currentSession.numberOfMachines * sizeof(windowSlot*));
+
+	for (i = 0; i < currentSession.numberOfMachines; i++) {
+		memset(&currentSession.dataMatrix[i], 0, currentSession.windowSize * sizeof(windowSlot));
+	}
+
+	currentSession.localClock = 0;
+	currentSession.lastSentIndex = 0;
+	currentSession.isFinalDelivery = 0;
+	currentSession.lastDeliveredPointer = 0;
+	currentSession.exitCounter = 0;
 }
