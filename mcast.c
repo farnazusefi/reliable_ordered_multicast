@@ -410,7 +410,8 @@ void handleFinalizeMessage(void *m, int bytes) {
 	currentSession.fullyDeliveredProcess[dm->pid - 1] = 1;
 	if (dm->index == 0) {
 		currentSession.lastExpectedIndexes[dm->pid - 1] = 1;
-		currentSession.lastDeliveredCounters[dm->pid - 1] = 1;
+		currentSession.lastDeliveredCounters[dm->pid - 1] = 1; // TODO: Remove?
+		updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
 		return;
 	}
 	currentSession.lastExpectedIndexes[dm->pid - 1] = dm->index;
