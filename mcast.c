@@ -740,6 +740,7 @@ void handleStartMessage(message *m, int bytes) {
 			startSending();
 		} else {
 			currentSession.state = STATE_RECEIVING;
+			currentSession.fullyDeliveredProcess[currentSession.machineIndex - 1] = 1;
 		}
 		break;
 	default:
