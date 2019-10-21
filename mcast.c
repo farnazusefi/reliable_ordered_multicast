@@ -404,7 +404,7 @@ int handleFinalizeMessage(void *m, int bytes) {
 	log_debug("received finalize message from %d, with index %d", dm->pid, dm->index);
 	currentSession.fullyDeliveredProcess[dm->pid - 1] = 1;
 	if (dm->index == 0) {
-		currentSession.lastExpectedIndexes[dm->pid - 1] = 1;
+//		currentSession.lastExpectedIndexes[dm->pid - 1] = 1;
 		terminated = updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
 		return terminated;
 	}
