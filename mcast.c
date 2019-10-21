@@ -1,5 +1,6 @@
 #include <time.h>
 #include "net_include.h"
+#include "recv_dbg.h"
 #include "log.h"
 
 #define TIMEOUT 2000000
@@ -59,7 +60,6 @@ typedef struct sessionT {
 	int numberOfMachines;
 	int delay;
 	windowSlot **dataMatrix;
-	//TODO remove garbage if it is not needed!
 	u_int32_t *lastInOrderReceivedIndexes;
 	u_int32_t *highestReceivedIndexes;
 	u_int32_t *windowStartPointers;
@@ -173,7 +173,7 @@ void driveMachine() {
 		num = select(FD_SETSIZE, &temp_mask, &dummy_mask, &dummy_mask, &timeout);
 		if (num > 0) {
 			if (FD_ISSET(currentSession.receivingSocket, &temp_mask)) {
-				bytes = recv(currentSession.receivingSocket, mess_buf, sizeof(mess_buf), 0); //TODO change to recv_dbg
+				bytes = recv_dbg(currentSession.receivingSocket, mess_buf, sizeof(mess_buf), 0); //TODO change to recv_dbg
 				mess_buf[bytes] = 0;
 				log_debug("received : %s\n", mess_buf);
 				terminate = parse((void*) mess_buf, bytes);
@@ -226,15 +226,17 @@ int main(int argc, char **argv) {
 		debug_mode = atoi(argv[6]);
 		currentSession.delay = atoi(argv[5]);
 
-		log_info("debug mode = %d, delay = %d \n", debug_mode, currentSession.delay);
+		log_info("debug mode = %d, delay = %d", debug_mode, currentSession.delay);
 	}
 	log_set_level(debug_mode);
 	currentSession.numberOfPackets = atoi(argv[1]);
 	currentSession.machineIndex = atoi(argv[2]);
 	currentSession.numberOfMachines = atoi(argv[3]);
 	currentSession.lossRate = atoi(argv[4]);
-	log_info("number of packets = %d, machine index = %d number of machines = %d  loss rate = %d \n", currentSession.numberOfPackets,
+	log_info("number of packets = %d, machine index = %d number of machines = %d  loss rate = %d", currentSession.numberOfPackets,
 			currentSession.machineIndex, currentSession.numberOfMachines, currentSession.lossRate);
+
+	recv_dbg_init(currentSession.lossRate, currentSession.machineIndex);
 
 	currentSession.receivingSocket = socket(AF_INET, SOCK_DGRAM, 0); /* socket for receiving */
 	if (currentSession.receivingSocket < 0) {
