@@ -846,16 +846,16 @@ void reinitialize() {
 	log_info("reinitializing buffers");
 	currentSession.state = STATE_WAITING;
 
-	memset(&currentSession.lastDeliveredCounters, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
-	memset(&currentSession.lastInOrderReceivedIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
-	memset(&currentSession.highestReceivedIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
-	memset(&currentSession.lastDeliveredIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
-	memset(&currentSession.fullyDeliveredProcess, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
-	memset(&currentSession.lastExpectedIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
-	memset(&currentSession.dataMatrix, 0, currentSession.numberOfMachines * sizeof(windowSlot*));
+	memset(currentSession.lastDeliveredCounters, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(currentSession.lastInOrderReceivedIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(currentSession.highestReceivedIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(currentSession.lastDeliveredIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(currentSession.fullyDeliveredProcess, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(currentSession.lastExpectedIndexes, 0, currentSession.numberOfMachines * sizeof(u_int32_t));
+	memset(currentSession.dataMatrix, 0, currentSession.numberOfMachines * sizeof(windowSlot*));
 
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
-		memset(&currentSession.dataMatrix[i], 0, currentSession.windowSize * sizeof(windowSlot));
+		memset(currentSession.dataMatrix[i], 0, currentSession.windowSize * sizeof(windowSlot));
 	}
 
 	currentSession.localClock = 0;
