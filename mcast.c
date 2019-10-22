@@ -206,7 +206,7 @@ void driveMachine() {
 
 			}
 
-			log_info("timeout in select. Polling all processes");
+			log_debug("timeout in select. Polling all processes");
 			if (currentSession.state == STATE_WAITING)
 				continue;
 			for (i = 1; i <= currentSession.numberOfMachines; i++) {
