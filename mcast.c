@@ -4,8 +4,7 @@
 #include "log.h"
 
 #define TIMEOUT 20000
-#define WINDOW_SIZE 100
-#define WAIT_BEFORE_EXIT 10
+#define WINDOW_SIZE 80
 #define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 1
 #define FLOW_CONTROL_VALVE 10000
 
@@ -877,7 +876,7 @@ void initializeAndSendRandomNumber(int moveStartpointer,
 		u_int32_t destinationPtr) {
 	windowSlot ws;
 	u_int32_t type = TYPE_DATA;
-	u_int32_t randomNumber = rand();
+	u_int32_t randomNumber = rand() % 1000000;
 	char data[1412];
 	++currentSession.lastSentIndex;
 	++currentSession.localClock;
