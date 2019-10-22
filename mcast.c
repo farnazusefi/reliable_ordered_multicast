@@ -20,6 +20,7 @@ typedef struct windowSlotT {
 	u_int32_t randomNumber;
 	u_int32_t lamportCounter;
 	u_int32_t valid;
+	struct timeval fbTimer;
 } windowSlot;
 
 typedef struct dataMessageT {
@@ -549,8 +550,14 @@ int updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 	return 0;
 }
 
+int timediff_us(struct timeval tv2, struct timeval tv1)
+{
+	return ((tv2.tv_sec - tv1.tv_sec)*1000000) + (tv2.tv_usec - tv1.tv_usec);
+}
+
 int handleDataMessage(void *m, int bytes) {
 	dataMessage *dm = (dataMessage*) m;
+	struct timeval now;
 	log_debug("handling data with counter= %d, index = %d from process %d",
 			dm->lamportCounter, dm->index, dm->pid);
 	switch (currentSession.state) {
@@ -565,12 +572,14 @@ int handleDataMessage(void *m, int bytes) {
 			u_int32_t nackIndices[currentSession.windowSize];
 			int counter = 0;
 			int indexDistance = 0;
+			gettimeofday(&now, NULL);
 			while (currentPointer
 					!= getPointerOfIndex(
 							currentSession.lastInOrderReceivedIndexes[dm->pid
 									- 1])) {
-				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid) {
+				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid && timediff_us(now, currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer) > 5000) {
 					nackIndices[counter++] = dm->index - indexDistance;
+					gettimeofday(&currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer, NULL);
 				}
 				currentPointer = (currentPointer - 1);
 				if (currentPointer == -1)
@@ -644,13 +653,6 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 }
 
 u_int32_t getPointerOfIndex(u_int32_t index) {
-//	windowSlot *currentWindow = currentSession.dataMatrix[pid - 1];
-//	u_int32_t currentWindowStartPointer = currentSession.windowStartPointers[pid - 1];
-//	if (index == 1)
-//		return 0;
-//	u_int32_t pointer = (currentWindowStartPointer + (index - currentWindow[currentWindowStartPointer].index)) % currentSession.windowSize;
-//	log_debug("pointer to index %d of process %d is %d", index, pid, pointer);
-//	return pointer;
 	if (!index)
 		return 0;
 	return (index - 1) % currentSession.windowSize;
@@ -670,7 +672,6 @@ void sendAck() {
 }
 
 int putInBuffer(dataMessage *m) {
-
 	windowSlot *currentWindow = currentSession.dataMatrix[m->pid - 1];
 	windowSlot ws;
 	u_int32_t startIndex = currentSession.lastDeliveredIndexes[m->pid - 1] + 1;
@@ -694,6 +695,7 @@ int putInBuffer(dataMessage *m) {
 		ws.lamportCounter = m->lamportCounter;
 		ws.randomNumber = m->randomNumber;
 		ws.valid = 1;
+		gettimeofday(&ws.fbTimer, NULL);
 		currentWindow[getPointerOfIndex(m->index)] = ws;
 		updateLastReceivedIndex(m->pid);
 		attemptDelivery();
@@ -897,6 +899,7 @@ void initializeAndSendRandomNumber(int moveStartpointer,
 	ws.lamportCounter = currentSession.localClock;
 	ws.randomNumber = randomNumber;
 	ws.valid = 1;
+	gettimeofday(&ws.fbTimer, NULL);
 	if (!moveStartpointer) {
 		currentSession.dataMatrix[currentSession.machineIndex - 1][destinationPtr] =
 				ws;
