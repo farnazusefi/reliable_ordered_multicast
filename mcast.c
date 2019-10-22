@@ -914,10 +914,16 @@ void initializeAndSendRandomNumber(int moveStartpointer,
 	memcpy(data + 12, garbage_data, 1400);
 	if (ws.index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
-	if (!(currentSession.lastSentIndex % 10000))
+	if (!(currentSession.lastSentIndex % 1000))
+	{
 		log_info("sending data message with number %d, clock %d, index %d",
 				randomNumber, currentSession.localClock,
 				currentSession.lastSentIndex);
+		log_warn("Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d", currentSession.totalPacketsSent, currentSession.totalRetrasmissions, currentSession.totalPolls, currentSession.totalFeedbacks);
+
+
+	}
+
 
 	sendMessage(type, data, 1412);
 
