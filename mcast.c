@@ -4,10 +4,10 @@
 #include "log.h"
 
 #define TIMEOUT 20000
-#define WINDOW_SIZE 200
+#define WINDOW_SIZE 100
 #define WAIT_BEFORE_EXIT 10
 #define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 100
-#define FLOW_CONTROL_VALVE 100
+#define FLOW_CONTROL_VALVE 10000
 
 typedef struct messageT {
 	u_int32_t type;
@@ -78,8 +78,9 @@ typedef struct sessionT {
 	u_int32_t windowSize;
 	u_int32_t lastSentIndex;
 	u_int32_t lastDeliveredPointer;
+	u_int32_t totalPacketsSent;
 	int exitCounter;
-	struct timeval exitTimestamp;
+	struct timeval exitTimestamp, start, end;
 
 	int sendingSocket;
 	int receivingSocket;
@@ -167,8 +168,8 @@ void driveMachine() {
 	FD_SET(currentSession.receivingSocket, &mask);
 	for (;;) {
 		temp_mask = mask;
-		timeout.tv_sec = 2;
-		timeout.tv_usec = 0;
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 100000;
 		log_debug("selecting ...");
 		num = select(FD_SETSIZE, &temp_mask, &dummy_mask, &dummy_mask, &timeout);
 		if (num > 0) {
@@ -315,7 +316,7 @@ void initializeBuffers() {
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		currentSession.dataMatrix[i] = (windowSlot*) calloc(currentSession.windowSize, sizeof(windowSlot));
 	}
-
+	currentSession.totalPacketsSent = 0;
 	currentSession.localClock = 0;
 	currentSession.lastSentIndex = 0;
 	currentSession.isFinalDelivery = 0;
@@ -626,9 +627,14 @@ int putInBuffer(dataMessage *m) {
 }
 
 void doTerminate() {
-	log_info("termination conditions hold. Exiting, BYE!");
+	gettimeofday(&currentSession.end, NULL);
+	u_int32_t duration = ((currentSession.end.tv_sec - currentSession.start.tv_sec) * 1000000) + (currentSession.end.tv_usec - currentSession.start.tv_usec);
+	log_info("termination conditions hold.");
+	log_info("Total elapsed time: %d seconds and %d miliseconds", duration/1000000, (duration%1000000)/1000);
+	log_info("Total packets sent: %d", currentSession.totalPacketsSent);
 	fclose(currentSession.f);
 	reinitialize();
+	log_info("Exiting, BYE!");
 	exit(0);
 }
 
@@ -697,10 +703,8 @@ void attemptDelivery() {
 		getLowestToDeliver(&pid, &pointer);
 		ws = currentSession.dataMatrix[pid - 1][pointer];
 		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
-//		log_debug("delivering to file, counter %d, index %d from process %d, data: %d", ws.lamportCounter, ws.index, pid, ws.randomNumber);
-
-		deliverToFile(pid, ws.index, ws.randomNumber);
 		currentSession.lastDeliveredCounters[currentSession.machineIndex - 1] = ws.lamportCounter - 1;
+		deliverToFile(pid, ws.index, ws.randomNumber);
 	}
 }
 
@@ -738,6 +742,7 @@ void handleStartMessage(message *m, int bytes) {
 	switch (currentSession.state) {
 	case STATE_WAITING:
 		prepareFile();
+		gettimeofday(&currentSession.start, NULL);
 		gettimeofday(&t, NULL);
 		for (i = 0; i < currentSession.numberOfMachines; i++) {
 			currentSession.timoutTimestamps[i] = t;
@@ -788,7 +793,8 @@ void initializeAndSendRandomNumber(int moveStartpointer, u_int32_t destinationPt
 	memcpy(data + 12, garbage_data, 1400);
 	if (ws.index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
-	log_info("sending data message with number %d, clock %d, index %d", randomNumber, currentSession.localClock, currentSession.lastSentIndex);
+	if(!(currentSession.lastSentIndex % 10000))
+		log_info("sending data message with number %d, clock %d, index %d", randomNumber, currentSession.localClock, currentSession.lastSentIndex);
 	sendMessage(type, data, 1412);
 
 }
@@ -801,6 +807,7 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 	memcpy(message + 8, &lastCounter, 4);
 	memcpy(message + 12, dp, payloadSize);
 	busyWait(currentSession.delay);
+	currentSession.totalPacketsSent++;
 	sendto(currentSession.sendingSocket, &message, payloadSize + 12, 0, (struct sockaddr*) &currentSession.sendAddr, sizeof(currentSession.sendAddr));
 }
 
@@ -830,10 +837,15 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 		// move window start pointer
 		currentSession.windowStartPointers[pid - 1] = (currentSession.windowStartPointers[pid - 1] + 1) % currentSession.windowSize;
 		log_debug("moved window for process %d. start pointer is %d", pid, currentSession.windowStartPointers[pid - 1]);
-	} else if (index == currentSession.numberOfPackets) {
-		currentSession.fullyDeliveredProcess[pid - 1] = 1;
-		currentSession.lastExpectedIndexes[pid - 1] = index;
+	} else
+		{
+		if (index == currentSession.numberOfPackets) {
+			currentSession.fullyDeliveredProcess[pid - 1] = 1;
+			currentSession.lastExpectedIndexes[pid - 1] = index;
+		}
+		synchronizeWindow();
 	}
+
 }
 
 void busyWait(u_int32_t loopCount) {
@@ -859,7 +871,7 @@ void reinitialize() {
 	for (i = 0; i < currentSession.numberOfMachines; i++) {
 		memset(&currentSession.dataMatrix[i], 0, currentSession.windowSize * sizeof(windowSlot));
 	}
-
+	currentSession.totalPacketsSent = 0;
 	currentSession.localClock = 0;
 	currentSession.lastSentIndex = 0;
 	currentSession.isFinalDelivery = 0;
