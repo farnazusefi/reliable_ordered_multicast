@@ -82,6 +82,9 @@ typedef struct sessionT {
 	u_int32_t lastSentIndex;
 	u_int32_t lastDeliveredPointer;
 	u_int32_t totalPacketsSent;
+	u_int32_t totalRetrasmissions;
+	u_int32_t totalFeedbacks;
+	u_int32_t totalPolls;
 	int exitCounter;
 	struct timeval exitTimestamp, start, end;
 
@@ -345,6 +348,9 @@ void initializeBuffers() {
 				currentSession.windowSize, sizeof(windowSlot));
 	}
 	currentSession.totalPacketsSent = 0;
+	currentSession.totalFeedbacks = 0;
+	currentSession.totalPolls = 0;
+	currentSession.totalRetrasmissions = 0;
 	currentSession.localClock = 0;
 	currentSession.lastSentIndex = 0;
 	currentSession.isFinalDelivery = 0;
@@ -357,6 +363,7 @@ void handleTimeOut(u_int32_t pid) {
 	char pollMsg[4];
 	log_debug("Sending POLL for pid=%d", pid);
 	memcpy(pollMsg, &pid, 4);
+	currentSession.totalPolls++;
 	sendMessage(TYPE_POLL, pollMsg, 4);
 }
 
@@ -431,6 +438,7 @@ int handlePollMessage(void *m, int bytes) {
 		char data[1412];
 		u_int32_t zero = 0;
 		memcpy(data, &zero, 4);
+		currentSession.totalFeedbacks++;
 		sendMessage(TYPE_FINALIZE, data, 1412);
 	} else
 		resendMessage(currentSession.lastSentIndex);
@@ -470,6 +478,7 @@ void resendMessage(u_int32_t index) {
 
 	if (index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
+	currentSession.totalRetrasmissions++;
 	sendMessage(type, data, 1412);
 }
 
@@ -630,7 +639,7 @@ void sendNack(u_int32_t pid, u_int32_t *indexes, u_int32_t length) {
 		log_debug("sending NACK for %d messages, index=%d", length,
 				indexes[length - i]);
 	}
-
+	currentSession.totalFeedbacks++;
 	sendMessage(TYPE_FEEDBACK, data, 12 + sizeof(u_int32_t) * length);
 }
 
@@ -656,6 +665,7 @@ void sendAck() {
 					- 1], 4);
 	log_debug("Acknowledging data for clock %d",
 			currentSession.lastDeliveredCounters[currentSession.machineIndex - 1]);
+	currentSession.totalFeedbacks++;
 	sendMessage(TYPE_FEEDBACK, data, 8);
 }
 
@@ -705,7 +715,7 @@ void doTerminate() {
 	log_info("termination conditions hold.");
 	log_info("Total elapsed time: %d seconds and %d miliseconds",
 			duration / 1000000, (duration % 1000000) / 1000);
-	log_info("Total packets sent: %d", currentSession.totalPacketsSent);
+	log_info("Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d", currentSession.totalPacketsSent, currentSession.totalRetrasmissions, currentSession.totalPolls, currentSession.totalFeedbacks);
 	fclose(currentSession.f);
 	currentSession.state = STATE_WAITING;
 	log_info("Exiting, BYE!");
