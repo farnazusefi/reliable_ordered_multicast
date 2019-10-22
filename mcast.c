@@ -6,7 +6,7 @@
 #define TIMEOUT 20000
 #define WINDOW_SIZE 100
 #define WAIT_BEFORE_EXIT 10
-#define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 100
+#define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 1
 #define FLOW_CONTROL_VALVE 10000
 
 typedef struct messageT {
@@ -191,20 +191,20 @@ void driveMachine() {
 		} else // timeout for select
 		{
 			int i;
-			if (currentSession.state == STATE_FINALIZING
-					&& currentSession.exitCounter
-					&& getMinOfArray(currentSession.lastDeliveredCounters, 0)
-							== (currentSession.lastDeliveredCounters[currentSession.machineIndex
-									- 1])) {
-				struct timeval current;
-				gettimeofday(&current, NULL);
-				if (current.tv_sec
-						- currentSession.exitTimestamp.tv_sec> WAIT_BEFORE_EXIT) {
-					doTerminate();
-					return;
-				}
-
-			}
+//			if (currentSession.state == STATE_FINALIZING
+//					&& currentSession.exitCounter
+//					&& getMinOfArray(currentSession.lastDeliveredCounters, 0)
+//							== (currentSession.lastDeliveredCounters[currentSession.machineIndex
+//									- 1])) {
+//				struct timeval current;
+//				gettimeofday(&current, NULL);
+//				if (current.tv_sec
+//						- currentSession.exitTimestamp.tv_sec> WAIT_BEFORE_EXIT) {
+//					doTerminate();
+//					return;
+//				}
+//
+//			}
 
 			log_debug("timeout in select. Polling all processes");
 			if (currentSession.state == STATE_WAITING)
@@ -414,6 +414,13 @@ int handlePollMessage(void *m, int bytes) {
 	u_int32_t polledPid = message->pollPID;
 	int terminated = 0;
 	log_debug("handling poll message from %d for %d", message->pid, polledPid);
+
+	if(currentSession.state == STATE_WAITING)
+	{
+		resendMessage(currentSession.lastSentIndex);
+		return 0;
+	}
+
 	terminated = updateLastDeliveredCounter(message->pid,
 			message->lastDeliveredCounter);
 	if (terminated)
@@ -701,9 +708,9 @@ void doTerminate() {
 			duration / 1000000, (duration % 1000000) / 1000);
 	log_info("Total packets sent: %d", currentSession.totalPacketsSent);
 	fclose(currentSession.f);
-	reinitialize();
+	currentSession.state = STATE_WAITING;
 	log_info("Exiting, BYE!");
-	exit(0);
+//	exit(0);
 }
 
 int dataRemaining() {
@@ -836,6 +843,7 @@ void handleStartMessage(message *m, int bytes) {
 	log_info("handling start message. Starting ...");
 	switch (currentSession.state) {
 	case STATE_WAITING:
+		reinitialize();
 		prepareFile();
 		gettimeofday(&currentSession.start, NULL);
 		gettimeofday(&t, NULL);
@@ -960,7 +968,7 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 
 void busyWait(u_int32_t loopCount) {
 	int i;
-	u_int32_t loopVar = (rand() % 100) + loopCount;
+	u_int32_t loopVar = loopCount - (rand() % 1000);
 	for (i = 0; i < loopVar; i++)
 		;
 }
@@ -968,7 +976,6 @@ void busyWait(u_int32_t loopCount) {
 void reinitialize() {
 	u_int32_t i;
 	log_info("reinitializing buffers");
-	currentSession.state = STATE_WAITING;
 
 	memset(currentSession.lastDeliveredCounters, 0,
 			currentSession.numberOfMachines * sizeof(u_int32_t));
