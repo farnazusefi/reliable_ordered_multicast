@@ -577,7 +577,9 @@ int handleDataMessage(void *m, int bytes) {
 					!= getPointerOfIndex(
 							currentSession.lastInOrderReceivedIndexes[dm->pid
 									- 1])) {
-				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid && timediff_us(now, currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer) > 5000) {
+				u_int32_t diff = timediff_us(now, currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer);
+				log_error("time difference for sending nack is %d for pid %d current ptr %d", diff, dm->pid, currentPointer);
+				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid &&  diff > 5000) {
 					nackIndices[counter++] = dm->index - indexDistance;
 					gettimeofday(&currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer, NULL);
 				}
