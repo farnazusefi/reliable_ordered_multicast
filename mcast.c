@@ -177,7 +177,7 @@ void driveMachine() {
 	for (;;) {
 		temp_mask = mask;
 		timeout.tv_sec = 0;
-		timeout.tv_usec = 10000;
+		timeout.tv_usec = 100000;
 		log_debug("selecting ...");
 		num = select(FD_SETSIZE, &temp_mask, &dummy_mask, &dummy_mask,
 				&timeout);
