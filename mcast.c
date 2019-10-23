@@ -936,11 +936,11 @@ void initializeAndSendRandomNumber(int moveStartpointer,
 		log_info("sending data message with number %d, clock %d, index %d",
 				randomNumber, currentSession.localClock,
 				currentSession.lastSentIndex);
-		log_warn(
-				"Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d",
-				currentSession.totalPacketsSent,
-				currentSession.totalRetrasmissions, currentSession.totalPolls,
-				currentSession.totalFeedbacks);
+//		log_warn(
+//				"Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d",
+//				currentSession.totalPacketsSent,
+//				currentSession.totalRetrasmissions, currentSession.totalPolls,
+//				currentSession.totalFeedbacks);
 
 	}
 
