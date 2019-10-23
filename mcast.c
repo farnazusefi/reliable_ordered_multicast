@@ -7,6 +7,8 @@
 #define WINDOW_SIZE 80
 #define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 1
 #define FLOW_CONTROL_VALVE 10000
+#define NACKREQUESTINGTHRESHOLD 2000
+
 
 typedef struct messageT {
 	u_int32_t type;
@@ -459,7 +461,7 @@ void resendMessage(u_int32_t index) {
 	struct timeval now;
 	gettimeofday(&now, NULL);
 
-	if(timediff_us(now, ws.fbTimer) < 2000)
+	if(timediff_us(now, ws.fbTimer) < NACKREQUESTINGTHRESHOLD + 1000)
 		return;
 	log_debug("re-sending data index %d", index);
 
@@ -577,7 +579,7 @@ int handleDataMessage(void *m, int bytes) {
 						"time difference for sending nack is %d for pid %d current ptr %d",
 						diff, dm->pid, currentPointer);
 				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid
-						&& diff > 1000) {
+						&& diff > NACKREQUESTINGTHRESHOLD) {
 					nackIndices[counter] = dm->index - indexDistance;
 					gettimeofday(
 							&currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer,
