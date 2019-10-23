@@ -8,6 +8,7 @@
 #define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 1
 #define FLOW_CONTROL_VALVE 10000
 #define NACKREQUESTINGTHRESHOLD 1000
+#define NACKSENDINGTHREASHOLD NACKREQUESTINGTHRESHOLD+3000
 
 
 typedef struct messageT {
@@ -461,7 +462,7 @@ void resendMessage(u_int32_t index) {
 	struct timeval now;
 	gettimeofday(&now, NULL);
 
-	if(timediff_us(now, ws.fbTimer) < NACKREQUESTINGTHRESHOLD + 1000)
+	if(timediff_us(now, ws.fbTimer) < NACKSENDINGTHREASHOLD)
 		return;
 	log_debug("re-sending data index %d", index);
 
