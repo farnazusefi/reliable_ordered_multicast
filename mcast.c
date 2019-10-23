@@ -155,6 +155,8 @@ void reinitialize();
 
 void busyWait();
 
+int timediff_us(struct timeval, struct timeval);
+
 session currentSession;
 
 void driveMachine() {
@@ -454,6 +456,11 @@ void resendMessage(u_int32_t index) {
 			currentSession.dataMatrix[currentSession.machineIndex - 1];
 	windowSlot ws = myDataArray[getPointerOfIndex(index)];
 	char data[1412];
+	struct timeval now;
+	gettimeofday(&now, NULL);
+
+	if(timediff_us(now, ws.fbTimer) < 2000)
+		return;
 	log_debug("re-sending data index %d", index);
 
 	memcpy(data, &ws.index, 4);
@@ -462,10 +469,12 @@ void resendMessage(u_int32_t index) {
 
 	memcpy(data + 12, garbage_data, 1400);
 
+
 	if (index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
 	currentSession.totalRetrasmissions++;
 	sendMessage(type, data, 1412);
+	currentSession.dataMatrix[currentSession.machineIndex - 1][getPointerOfIndex(index)].fbTimer = now;
 }
 
 int handleFeedbackMessage(char *m, int bytes, u_int32_t pid) {
