@@ -583,10 +583,11 @@ int handleDataMessage(void *m, int bytes) {
 						diff, dm->pid, currentPointer);
 				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid
 						&& diff > 5000) {
-					nackIndices[counter++] = dm->index - indexDistance;
+					nackIndices[counter] = dm->index - indexDistance;
 					gettimeofday(
 							&currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer,
 							NULL);
+					counter++;
 				}
 				currentPointer = (currentPointer - 1);
 				if (currentPointer == -1)
@@ -597,8 +598,9 @@ int handleDataMessage(void *m, int bytes) {
 			if (!currentSession.lastInOrderReceivedIndexes[dm->pid - 1])// when packet with index 1 is lost!!!
 			{
 				if (!currentSession.dataMatrix[dm->pid - 1][0].valid) {
-					nackIndices[counter++] = dm->index - indexDistance;
+					nackIndices[counter] = 1;
 					gettimeofday(&currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer,NULL);
+					counter++;
 				}
 				indexDistance++;
 			}
