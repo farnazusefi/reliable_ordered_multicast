@@ -164,7 +164,6 @@ void driveMachine() {
 	char mess_buf[MAX_MESS_LEN];
 	struct timeval timeout;
 	int terminate = 0;
-
 	log_info("Waiting for start message");
 	bytes = recv(currentSession.receivingSocket, mess_buf, sizeof(mess_buf), 0);
 	mess_buf[bytes] = 0;
@@ -184,7 +183,7 @@ void driveMachine() {
 		if (num > 0) {
 			if (FD_ISSET(currentSession.receivingSocket, &temp_mask)) {
 				bytes = recv_dbg(currentSession.receivingSocket, mess_buf,
-						sizeof(mess_buf), 0); //TODO change to recv_dbg
+						sizeof(mess_buf), 0);
 				mess_buf[bytes] = 0;
 				log_debug("received : %s\n", mess_buf);
 				terminate = parse((void*) mess_buf, bytes);
@@ -194,20 +193,6 @@ void driveMachine() {
 		} else // timeout for select
 		{
 			int i;
-//			if (currentSession.state == STATE_FINALIZING
-//					&& currentSession.exitCounter
-//					&& getMinOfArray(currentSession.lastDeliveredCounters, 0)
-//							== (currentSession.lastDeliveredCounters[currentSession.machineIndex
-//									- 1])) {
-//				struct timeval current;
-//				gettimeofday(&current, NULL);
-//				if (current.tv_sec
-//						- currentSession.exitTimestamp.tv_sec> WAIT_BEFORE_EXIT) {
-//					doTerminate();
-//					return;
-//				}
-//
-//			}
 
 			log_debug("timeout in select. Polling all processes");
 			if (currentSession.state == STATE_WAITING)
@@ -284,7 +269,7 @@ int main(int argc, char **argv) {
 	}
 
 	currentSession.sendingSocket = socket(AF_INET, SOCK_DGRAM, 0); /* Socket for sending */
-
+	prepareFile();
 	if (currentSession.sendingSocket < 0) {
 		perror("Mcast: socket");
 		exit(1);
@@ -614,7 +599,7 @@ int handleDataMessage(void *m, int bytes) {
 	case STATE_FINALIZING:
 		return updateLastDeliveredCounter(dm->pid, dm->lastDeliveredCounter);
 	default:
-		log_warn("discarding unexpected data");
+		// log_warn("discarding unexpected data");
 		break;
 	}
 	return 0;
@@ -871,11 +856,11 @@ void updateLastReceivedIndex(u_int32_t pid) {
 void handleStartMessage(message *m, int bytes) {
 	struct timeval t;
 	int i;
-	log_info("handling start message. Starting ...");
+	// log_info("handling start message. Starting ...");
 	switch (currentSession.state) {
 	case STATE_WAITING:
 //		reinitialize();
-		prepareFile();
+		
 		gettimeofday(&currentSession.start, NULL);
 		gettimeofday(&t, NULL);
 		for (i = 0; i < currentSession.numberOfMachines; i++) {
@@ -891,7 +876,7 @@ void handleStartMessage(message *m, int bytes) {
 		}
 		break;
 	default:
-		log_warn("the process has already started");
+		// log_warn("the process has already started");
 		break;
 	}
 }
