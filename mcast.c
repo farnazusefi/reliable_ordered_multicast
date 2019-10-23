@@ -177,7 +177,7 @@ void driveMachine() {
 	for (;;) {
 		temp_mask = mask;
 		timeout.tv_sec = 0;
-		timeout.tv_usec = 100000;
+		timeout.tv_usec = 10000;
 		log_debug("selecting ...");
 		num = select(FD_SETSIZE, &temp_mask, &dummy_mask, &dummy_mask,
 				&timeout);
@@ -422,8 +422,7 @@ int handlePollMessage(void *m, int bytes) {
 	int terminated = 0;
 	log_debug("handling poll message from %d for %d", message->pid, polledPid);
 
-	if(currentSession.state == STATE_WAITING)
-	{
+	if (currentSession.state == STATE_WAITING) {
 		resendMessage(currentSession.lastSentIndex);
 		return 0;
 	}
@@ -550,9 +549,8 @@ int updateLastDeliveredCounter(u_int32_t pid, u_int32_t lastDeliveredCounter) {
 	return 0;
 }
 
-int timediff_us(struct timeval tv2, struct timeval tv1)
-{
-	return ((tv2.tv_sec - tv1.tv_sec)*1000000) + (tv2.tv_usec - tv1.tv_usec);
+int timediff_us(struct timeval tv2, struct timeval tv1) {
+	return ((tv2.tv_sec - tv1.tv_sec) * 1000000) + (tv2.tv_usec - tv1.tv_usec);
 }
 
 int handleDataMessage(void *m, int bytes) {
@@ -577,17 +575,32 @@ int handleDataMessage(void *m, int bytes) {
 					!= getPointerOfIndex(
 							currentSession.lastInOrderReceivedIndexes[dm->pid
 									- 1])) {
-				u_int32_t diff = timediff_us(now, currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer);
-				log_error("time difference for sending nack is %d for pid %d current ptr %d", diff, dm->pid, currentPointer);
-				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid &&  diff > 5000) {
+				u_int32_t diff =
+						timediff_us(now,
+								currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer);
+				log_trace(
+						"time difference for sending nack is %d for pid %d current ptr %d",
+						diff, dm->pid, currentPointer);
+				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid
+						&& diff > 5000) {
 					nackIndices[counter++] = dm->index - indexDistance;
-					gettimeofday(&currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer, NULL);
+					gettimeofday(
+							&currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer,
+							NULL);
 				}
 				currentPointer = (currentPointer - 1);
 				if (currentPointer == -1)
 					currentPointer = currentSession.windowSize - 1;
 				indexDistance++;
 
+			}
+			if (!currentSession.lastInOrderReceivedIndexes[dm->pid - 1])// when packet with index 1 is lost!!!
+			{
+				if (!currentSession.dataMatrix[dm->pid - 1][0].valid) {
+					nackIndices[counter++] = dm->index - indexDistance;
+					gettimeofday(&currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer,NULL);
+				}
+				indexDistance++;
 			}
 			if (counter > 0)
 				sendNack(dm->pid, nackIndices, counter);
@@ -719,7 +732,10 @@ void doTerminate() {
 	log_info("termination conditions hold.");
 	log_info("Total elapsed time: %d seconds and %d miliseconds",
 			duration / 1000000, (duration % 1000000) / 1000);
-	log_info("Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d", currentSession.totalPacketsSent, currentSession.totalRetrasmissions, currentSession.totalPolls, currentSession.totalFeedbacks);
+	log_info(
+			"Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d",
+			currentSession.totalPacketsSent, currentSession.totalRetrasmissions,
+			currentSession.totalPolls, currentSession.totalFeedbacks);
 	fclose(currentSession.f);
 	currentSession.state = STATE_WAITING;
 	log_info("Exiting, BYE!");
@@ -916,16 +932,17 @@ void initializeAndSendRandomNumber(int moveStartpointer,
 	memcpy(data + 12, garbage_data, 1400);
 	if (ws.index == currentSession.numberOfPackets)
 		type = TYPE_FINALIZE;
-	if (!(currentSession.lastSentIndex % 1000))
-	{
+	if (!(currentSession.lastSentIndex % 1000)) {
 		log_info("sending data message with number %d, clock %d, index %d",
 				randomNumber, currentSession.localClock,
 				currentSession.lastSentIndex);
-		log_warn("Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d", currentSession.totalPacketsSent, currentSession.totalRetrasmissions, currentSession.totalPolls, currentSession.totalFeedbacks);
-
+		log_warn(
+				"Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d",
+				currentSession.totalPacketsSent,
+				currentSession.totalRetrasmissions, currentSession.totalPolls,
+				currentSession.totalFeedbacks);
 
 	}
-
 
 	sendMessage(type, data, 1412);
 
@@ -939,7 +956,7 @@ void sendMessage(enum TYPE type, char *dp, int payloadSize) {
 			currentSession.lastDeliveredCounters[currentSession.machineIndex - 1];
 	memcpy(message + 8, &lastCounter, 4);
 	memcpy(message + 12, dp, payloadSize);
-	busyWait(currentSession.delay);
+	//busyWait(currentSession.delay);
 	currentSession.totalPacketsSent++;
 	sendto(currentSession.sendingSocket, &message, payloadSize + 12, 0,
 			(struct sockaddr*) &currentSession.sendAddr,
