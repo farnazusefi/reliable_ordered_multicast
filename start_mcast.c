@@ -3,7 +3,7 @@
 
 enum TYPE
 {
-    TYPE_START,
+    TYPE_START = 5,
     TYPE_DATA,
     TYPE_FEEDBACK,
     TYPE_POLL,
