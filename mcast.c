@@ -398,7 +398,7 @@ int parse(void *buf, int bytes) {
 		break;
 	default:
 		log_warn("invalid type %d\n", m->type);
-		break;
+		return 0;
 	}
 	if (m->type != TYPE_START) {
 		gettimeofday(&currentSession.timoutTimestamps[m->pid - 1], NULL);
