@@ -86,6 +86,7 @@ typedef struct sessionT {
 	u_int32_t totalRetrasmissions;
 	u_int32_t totalFeedbacks;
 	u_int32_t totalPolls;
+	u_int32_t totalPollResponses;
 	int exitCounter;
 	struct timeval exitTimestamp, start, end;
 
@@ -337,6 +338,7 @@ void initializeBuffers() {
 	currentSession.totalFeedbacks = 0;
 	currentSession.totalPolls = 0;
 	currentSession.totalRetrasmissions = 0;
+	currentSession.totalPollResponses = 0;
 	currentSession.localClock = 0;
 	currentSession.lastSentIndex = 0;
 	currentSession.isFinalDelivery = 0;
@@ -418,12 +420,11 @@ int handlePollMessage(void *m, int bytes) {
 		return 1;
 	if (polledPid != currentSession.machineIndex)
 		return 0;
-
+	currentSession.totalPollResponses++;
 	if (currentSession.state == STATE_RECEIVING) {
 		char data[1412];
 		u_int32_t zero = 0;
 		memcpy(data, &zero, 4);
-		currentSession.totalFeedbacks++;
 		sendMessage(TYPE_FINALIZE, data, 1412);
 	} else
 		resendMessage(currentSession.lastSentIndex);
@@ -720,9 +721,9 @@ void doTerminate() {
 	log_info("Total elapsed time: %d seconds and %d miliseconds",
 			duration / 1000000, (duration % 1000000) / 1000);
 	log_info(
-			"Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d",
+			"Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d - pollResponses = %d",
 			currentSession.totalPacketsSent, currentSession.totalRetrasmissions,
-			currentSession.totalPolls, currentSession.totalFeedbacks);
+			currentSession.totalPolls, currentSession.totalFeedbacks, currentSession.totalPollResponses);
 	fclose(currentSession.f);
 	currentSession.state = STATE_WAITING;
 	log_info("Exiting, BYE!");
