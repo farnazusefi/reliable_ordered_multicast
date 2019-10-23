@@ -702,7 +702,7 @@ int putInBuffer(dataMessage *m) {
 		currentWindow[getPointerOfIndex(m->index)] = ws;
 		updateLastReceivedIndex(m->pid);
 		attemptDelivery();
-		if (currentSession.numberOfPackets == 0) {
+		if (currentSession.numberOfPackets == 0 && ws.index % 10 == 0) {
 			sendAck();
 		}
 		return 1;
