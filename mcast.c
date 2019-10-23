@@ -397,7 +397,7 @@ int parse(void *buf, int bytes) {
 		terminated = handlePollMessage(buf, bytes);
 		break;
 	default:
-		log_warn("invalid type %d\n", m->type);
+		log_debug("invalid type %d\n", m->type);
 		return 0;
 	}
 	if (m->type != TYPE_START) {
