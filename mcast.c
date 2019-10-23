@@ -568,7 +568,7 @@ int handleDataMessage(void *m, int bytes) {
 						"time difference for sending nack is %d for pid %d current ptr %d",
 						diff, dm->pid, currentPointer);
 				if (!currentSession.dataMatrix[dm->pid - 1][currentPointer].valid
-						&& diff > 10000) {
+						&& diff > 1000) {
 					nackIndices[counter] = dm->index - indexDistance;
 					gettimeofday(
 							&currentSession.dataMatrix[dm->pid - 1][currentPointer].fbTimer,
