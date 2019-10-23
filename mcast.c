@@ -845,11 +845,11 @@ void updateLastReceivedIndex(u_int32_t pid) {
 	log_debug(
 			"attempting to Update last received index for %d - lastvalididxptr = %d, window startptr = %d",
 			pid, lastValidIndexPointer, windowStartPointer);
-	if (lastValidIndex == 0) {
-		currentSession.lastInOrderReceivedIndexes[pid - 1] = 1;
-		log_debug("Updating last received index to 1");
-		return;
-	}
+	// if (lastValidIndex == 0) {
+	// 	currentSession.lastInOrderReceivedIndexes[pid - 1] = 1;
+	// 	log_debug("Updating last received index to 1");
+	// 	return;
+	// }
 	u_int32_t searchingPointer = windowStartPointer;
 	u_int32_t counter = 0;
 	while (counter != currentSession.windowSize) {
