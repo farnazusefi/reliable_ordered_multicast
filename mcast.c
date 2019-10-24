@@ -6,7 +6,6 @@
 #define TIMEOUT 20000
 #define WINDOW_SIZE 80
 #define NUM_OF_FINALIZE_MSGS_BEFORE_EXIT 1
-#define FLOW_CONTROL_VALVE 10000
 #define NACKREQUESTINGTHRESHOLD 1000
 #define NACKSENDINGTHREASHOLD NACKREQUESTINGTHRESHOLD+3000
 
@@ -156,8 +155,6 @@ void resendMessage(u_int32_t index);
 
 void reinitialize();
 
-void busyWait();
-
 int timediff_us(struct timeval, struct timeval);
 
 session currentSession;
@@ -224,17 +221,14 @@ int main(int argc, char **argv) {
 
 	if (argc != 5 && argc != 7) {
 		printf(
-				"Usage: ./mcast <num of packets> <machine index> <num of machines> <loss rate> [delay] [debug mode(1-5)]  \n");
+				"Usage: ./mcast <num of packets> <machine index> <num of machines> <loss rate> [debug mode(1-5)]  \n");
 		exit(1);
 	}
-	currentSession.delay = FLOW_CONTROL_VALVE;
 	// optional args
-	if (argc == 7) {
-		debug_mode = atoi(argv[6]);
-		currentSession.delay = atoi(argv[5]);
+	if (argc == 6) {
+		debug_mode = atoi(argv[5]);
 
-		log_info("debug mode = %d, delay = %d", debug_mode,
-				currentSession.delay);
+		log_info("debug mode = %d", debug_mode);
 	}
 	log_set_level(debug_mode);
 	currentSession.numberOfPackets = atoi(argv[1]);
@@ -936,11 +930,6 @@ void initializeAndSendRandomNumber(int moveStartpointer,
 		log_info("sending data message with number %d, clock %d, index %d",
 				randomNumber, currentSession.localClock,
 				currentSession.lastSentIndex);
-//		log_warn(
-//				"Total packets sent: %d - retransmissions = %d - polls = %d - feedbacks = %d",
-//				currentSession.totalPacketsSent,
-//				currentSession.totalRetrasmissions, currentSession.totalPolls,
-//				currentSession.totalFeedbacks);
 
 	}
 
@@ -1001,13 +990,6 @@ void deliverToFile(u_int32_t pid, u_int32_t index, u_int32_t randomData) {
 		synchronizeWindow();
 	}
 
-}
-
-void busyWait(u_int32_t loopCount) {
-	int i;
-	u_int32_t loopVar = loopCount - (rand() % 1000);
-	for (i = 0; i < loopVar; i++)
-		;
 }
 
 void reinitialize() {
